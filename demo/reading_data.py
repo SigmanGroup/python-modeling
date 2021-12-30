@@ -14,23 +14,38 @@ class modeling_methods:
     in addition to the file path and sheet name.
     The method also checks for a valid path before trying to read the excel file.
     """
-    def read_excel_file(self, path=0, sheet=0, header_row=0, rows_start = None, rows_stop = None, cols_start = None, cols_end = None):
+    def read_excel_file(self, path="", sheet=0, header_row=0, rows_start = None, rows_stop = None, cols_start = None, cols_stop = None):
         #read file and create pandas DataFrame
         try:
             self.df = pd.read_excel(io=path, sheet_name=sheet, header=header_row)
             self.df.dropna(axis = 0, how = 'all', inplace = True)
-            if rows_start and rows_stop and cols_start and cols_end: 
-                get_subset_of_df(rows_start, rows_stop, cols_start, cols_end)
+            self.__get_subset_of_df(rows_start, rows_stop, cols_start, cols_stop)
         #error message if file cannot be found
         except IOError:
-            print (except_message,"Could not read file:", path)
+            print (self.except_message,"Could not read file:", path)
             
     """
     Private helper method gets specific subsection of dataframe
     """
-    def __get_subset_of_df(self, r_start, r_stop, c_start, c_stop):
-        if (r_start > 0) and (r_stop < df.shape[0]) and (c_start >0) and (c_stop < df.shape[1]):
-            df = df.iloc[r_start:r_stop, c_start:c_stop]
+    def __get_subset_of_df(self, rows_start=None, rows_stop=None, cols_start=None, cols_stop=None):
+            #check parameters
+            if (rows_stop) is None:
+                rows_stop=self.df.shape[0]-1
+                
+            if cols_stop is None:
+                cols_end=self.df.shape[1]-1
+            
+            if rows_start is None:
+                rows_start = 0
+                
+            if cols_start is None:
+                cols_start = 0
+                
+            try: 
+                self.df = self.df.iloc[rows_start:rows_stop, cols_start:cols_stop]
+                
+            except IOError:
+                print (self.except_message,"Span does not fit dataframe dimensions.")
 
     """
     This is the single file code from the original Matlab_modeling notebook as a method. 
