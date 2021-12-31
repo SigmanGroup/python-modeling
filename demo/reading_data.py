@@ -92,4 +92,7 @@ class single_file:
             print("Last y:  {}".format(y[-1]))
             print("Last label: {}".format(y_labels[-1]))
 
-
+class multiple_files():
+    def __init__(self):
+        self.except_message = "Error:"
+        self.df = None #to be data frame
