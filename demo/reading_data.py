@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-class modeling_methods:
+class single_file:
     
     def __init__(self):
         self.except_message = "Error:"
