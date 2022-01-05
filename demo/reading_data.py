@@ -181,3 +181,8 @@ class data_prep():
     #Feature Scaling
     #Cross-terms/Interaction terms
         
+class visualize():
+        def __init__(self):
+        self.except_message = "Error:"
+        
+        
