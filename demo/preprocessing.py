@@ -3,6 +3,7 @@ import numpy as np
 
 
 class data_prep():
+    '''TODO: change param to dataframe and allow option to specify y column'''
     def __init__(self, X = None, Y = None, X_labels = None, Y_labels = None):
         self.except_message = "Error:"
         
@@ -40,20 +41,20 @@ class data_prep():
         print("Shape y: {}".format(self.y.shape)) 
         print("Shape labels: {}".format(self.y_labels.shape)) 
         
-            
-    def preselect(self, exp: bool = False, remove_y_zeros: bool = False, log: bool = False, abs_val: bool = False, exclude_feature = None, cutoff: int = None, exclude_index: int = None):  
-        y = self.y
-        x = self.x
-        y_labels = self.y_labels
+    def get_curr_data(self):
+        return self.x.copy(), self.y.copy()
+    
+    def get_y_exp(self):
+        self.y = np.exp(self.y)
+    
+    def get_y_abs(self):
+        self.y = np.abs(self.y)
         
-        if exp and y is not None:
-            y = np.exp(y)
-        
-        if abs_val and y is not None:
-            y = np.abs(y)
-        
-        if log and y is not None and not remove_y_zeros: 
-            y = np.log(y+0.0001)
+    def get_y_log(self, remove_y_zeros = False):
+        if keep_zeros:
+            self.y = np.log(self.y+0.0001)
+        else:
+            print("not yet implemented")
             '''
                 todo: handle remove_y_zeros
                     y = np.log(y[y.nonzero()[0]])
@@ -61,25 +62,23 @@ class data_prep():
                     y_labels = y_labels[y.nonzero()[0]]
                     X = X[y.nonzero()[0]]
             '''
-        if exclude_feature is not None and cutoff is not None:
-            try:
-                mask_prop = x[:,self.x_labels.index(select_feature)]<cutoff
-                self.x = x[mask_prop]
-                self.y = y[mask_prop]
-                self.y_labels = self.y_labels[mask_prop]
-            except IOError:
-                print(self.except_message, "cannot exclude feature with specified cutoff.")
-        
-        if exclude_index is not None:
-            #todo: exclude = [38] #+[i for i in range(26,37)]?
-            try:
-                mask_prop = [i for i in range(len(y)) if i not in exclude_index]
-                self.x = x[mask_prop]
-                self.y = y[mask_prop]
-                self.y_labels = self.y_labels[mask_prop]
-            except IOError:
-                print(self.except_message, "cannot exclude specified index.")
-        
+    def drop_cols_names(self, names: list() = None):
+        try:
+            self.x.drop(names, axis=1, inplace=True)
+        except IOError:
+            print(self.except_message, "cannot exclude columns with feature names in list.")
+                
+    def drop_cols_indices(self, indices: list() = None, cutoff: list() = None)
+        try:
+            self.x.drop(indices, axis=1, inplace=True)
+        except IOError:
+            print(self.except_message, "cannot exclude columns with indices in list.")
+            
+    def drop_rows_above_cutoff(self, col_name: str = None, col_inx: int = None, cutoff: int = None):
+        if cutoff is None:
+            print("Error: cutoff not provided")
+            return
+              
     #Training/Test set split
     #Feature Scaling
     #Cross-terms/Interaction terms
