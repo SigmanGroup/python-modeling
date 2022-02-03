@@ -51,7 +51,7 @@ class data_prep():
         self.y = np.abs(self.y)
         
     def get_y_log(self, remove_y_zeros = False):
-        if keep_zeros:
+        if not remove_y_zeros:
             self.y = np.log(self.y+0.0001)
         else:
             print("not yet implemented")
@@ -64,20 +64,24 @@ class data_prep():
             '''
     def drop_cols_names(self, names: list() = None):
         try:
-            self.x.drop(names, axis=1, inplace=True)
+            self.x = self.x.drop(names, axis=1)
         except IOError:
             print(self.except_message, "cannot exclude columns with feature names in list.")
                 
-    def drop_cols_indices(self, indices: list() = None, cutoff: list() = None)
+    def drop_cols_indices(self, indices: list() = None, cutoff: list() = None):
         try:
-            self.x.drop(indices, axis=1, inplace=True)
+            self.x = self.x.drop(self.x.columns[indices], axis=1)
         except IOError:
             print(self.except_message, "cannot exclude columns with indices in list.")
             
-    def drop_rows_above_cutoff(self, col_name: str = None, col_inx: int = None, cutoff: int = None):
+    def drop_rows_above_cutoff(self, col_name: str = None, cutoff: int = None):
         if cutoff is None:
             print("Error: cutoff not provided")
             return
+        try:
+            self.x = self.x[self.x[col_name] <= cutoff]
+        except IOError:
+            print(self.except_message, "unable to remove rows using the provided parameters.")
               
     #Training/Test set split
     #Feature Scaling
