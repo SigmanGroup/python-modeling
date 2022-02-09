@@ -21,13 +21,10 @@ class read_excel_file:
             self.__get_subset_of_df(rows_start, rows_stop, cols_start, cols_stop)
         #error message if file cannot be found
         except IOError:
-            print (self.except_message,"Could not read file:", path)
+            print (self.excepts_message,"Could not read file:", path)
             
-        """
-    This is a simplified version of the read single file function.
-    It includes parameters for the header row, span as index range for the rows to be included, 
-    in addition to the file path and sheet name.
-    The method also checks for a valid path before trying to read the excel file.
+    """
+    This is a simplified function of the read two files, one for x and one for y.
     """
     def read_two_excel_files(self, pathX="", pathY="", Y_col: int = None, sheet=0, header_row=0, rows_start = None, rows_stop = None, cols_start = None, cols_stop = None):
         #read file and create pandas DataFrame

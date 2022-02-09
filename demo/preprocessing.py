@@ -56,11 +56,7 @@ class data_prep():
         else:
             print("not yet implemented")
             '''
-                todo: handle remove_y_zeros
-                    y = np.log(y[y.nonzero()[0]])
-                    y_labels_orig,X_orig = y_labels.copy(),X.copy()
-                    y_labels = y_labels[y.nonzero()[0]]
-                    X = X[y.nonzero()[0]]
+                todo: enable remove_y_zeros
             '''
     def drop_cols_names(self, names: list() = None):
         try:
@@ -83,6 +79,3 @@ class data_prep():
         except IOError:
             print(self.except_message, "unable to remove rows using the provided parameters.")
               
-    #Training/Test set split
-    #Feature Scaling
-    #Cross-terms/Interaction terms
