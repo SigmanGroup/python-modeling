@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -15,7 +16,6 @@ class visualize:
         self.y_dict = dict()
         self.x_dict = dict()
         self.rsq_threshold = None
-        self.figures = []
 
     def reset_df(self):
         """
@@ -58,12 +58,9 @@ class visualize:
             self.curr_cols = list(self.sub_df.columns)
         except:
             print(self.except_message + "feature in list not in dataframe")
-            
-    def show_figures(self, pair: bool = False):
-        print("To make subplots???")
 
 
-    def build_hist(self, cols: list = None, show: bool = True):
+    def build_hist(self, cols: list = None, y = None, univar: bool = False):
         """
         This method allows a user to plot a histogram for one, multiple or all columns in the dataframe. 
         If a column is not specified, all of the columns will be plotted. 
@@ -72,13 +69,22 @@ class visualize:
         if cols is None:
             print(self.except_message+"There are columns in your list that do not exist in the dataframe.")
             return
-
+        
+        fig = plt.figure()
+        
         for col in cols:
+            plt.subplot(1,2,1)
             plt.hist(self.sub_df[col], bins="auto")
             plt.ylabel("frequency")
             plt.xlabel(col)
-            plt.title(col)
-            plt.show()
+            
+            if univar:
+                plt.tight_layout(pad=7.0)
+                plt.subplot(1,2,2)
+                self.build_univar(cols, y, True)
+                
+            else:
+                plt.show()
 
     def get_result_label(self, rsq, pval):
         """
@@ -99,7 +105,7 @@ class visualize:
         else:
             return None
 
-    def build_univar(self, cols: list = None, y: list = None, show: bool = True):
+    def build_univar(self, cols: list = None, y: list = None, with_hist: bool = False):
         """
         This method allows a user to plot a univariate linear regression line for one, multiple or all columns in the dataframe. 
         If a column is not specified, all of the columns will be plotted. 
@@ -125,14 +131,14 @@ class visualize:
             plt.plot(self.sub_df[col],fit_line,color="black")
             plt.xlabel(col)
             plt.ylabel("y") # "$ΔΔG^{≠}$"  "Yield"
-            plt.title(result_label)
+            
+            if with_hist:
+                plt.suptitle("\n x = "+col+"\n"+result_label, y = 1)
+            else:
+                plt.title(result_label)
             plt.show()            
             
     def show_hist_univar_pairs(self, cols, y):
         for col in cols:
-#             plt.subplot(1,2,1)
-            self.build_hist([col], False)
-#             plt.subplot(1,2,1)
-            self.build_univar([col],y, False)
-#             plt.show()  
+            self.build_hist([col], y, True)
 # https://stackoverflow.com/questions/3783217/get-the-list-of-figures-in-matplotlib
