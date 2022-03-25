@@ -39,6 +39,12 @@ class read_excel_file:
         except IOError:
             print (self.except_message,"Could not read file:", path)
             
+    '''
+    This returns a copy of the current dataframe so the user can do whatever pandas magic they want with it
+    '''
+    def get_dataframe(self):
+        return self.data.copy()    
+            
     """
     Private helper method gets specific subsection of dataframe
     """
@@ -61,4 +67,40 @@ class read_excel_file:
                 
             except IOError:
                 print (self.except_message,"Span does not fit dataframe dimensions.")
-        
+                
+                
+    '''
+    This is a conventience method for removing a column after reading the file.
+    You can also do this on your own with lists of column names, etc, using the Pandas library.
+    To do this with a dataframe generated with this class, call get_dataframe().
+    '''           
+    def drop_column(self, col = None):
+        if col is not None:
+            try:
+                self.data.drop(col_name, axis=1, inplace=True)
+                self.data.reset_index(inplace = True)
+                print("Column successfully removed from the dataframe.")
+                return
+            except:
+                print (self.except_message,"The column you specified is not in the dataframe")
+        else:
+            print("You did not specify a column, so nothing in the dataframe was changed.")
+            
+                
+    '''
+    This is a conventience method for removing a row after reading the file.
+    You can also do this on your own with lists of column names, etc, using the Pandas library.
+    To do this with a dataframe generated with this class, call get_dataframe().
+    '''   
+    def drop_row(self, row = None):
+        if row is not None:
+            try:
+                self.data.drop(row, axis=0, inplace=True)
+                self.data.reset_index(inplace = True)
+                print("Row successfully removed from the dataframe.")
+                return
+            except:
+                print (self.except_message,"The column you specified is not in the dataframe")
+        else:
+             print("You did not specify a column, so nothing in the dataframe was changed.")
+

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 
 class data_prep():
@@ -44,6 +45,9 @@ class data_prep():
     def get_curr_data(self):
         return self.x.copy(), self.y.copy()
     
+    def scaleX(self, X):
+        return StandardScaler().fit_transform(X)
+    
     def get_y_exp(self):
         self.y = np.exp(self.y)
     
@@ -54,10 +58,8 @@ class data_prep():
         if not remove_y_zeros:
             self.y = np.log(self.y+0.0001)
         else:
-            print("not yet implemented")
-            '''
-                todo: enable remove_y_zeros
-            '''
+            self.y = self.y.loc[(self.y!=0).any(axis=1)]
+            
     def drop_cols_names(self, names: list() = None):
         try:
             self.x = self.x.drop(names, axis=1)

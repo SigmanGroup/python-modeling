@@ -5,6 +5,8 @@ import pandas as pd
 import seaborn as sns
 from scipy import stats
 import itertools
+import warnings
+warnings.filterwarnings("ignore")
 
 
 class visualize:
@@ -24,7 +26,10 @@ class visualize:
         
     def reset_rsq_threshold(self):
         self.rsq_threshold = None
-            
+        
+        
+################ Plot methods ################   
+
     def show_hist_univar_pairs(self, cols, y):
         '''
         This method allows the hist and univar plots to be viewed side-by-side (like the original script)
@@ -46,18 +51,22 @@ class visualize:
         fig = plt.figure()
         
         for col in cols:
-            plt.subplot(1,2,1)
-            plt.hist(self.sub_df[col], bins="auto")
-            plt.ylabel("frequency")
-            plt.xlabel(col)
-            
-            if univar:
-                plt.tight_layout(pad=7.0)
-                plt.subplot(1,2,2)
-                self.build_univar(cols, y, True)
-                
-            else:
-                plt.show()
+            try:
+                plt.subplot(1,2,1)
+                plt.hist(self.sub_df[col], bins="auto")
+                plt.ylabel("frequency")
+                plt.xlabel(col)
+
+                if univar:
+                    plt.tight_layout(pad=7.0)
+                    plt.subplot(1,2,2)
+                    self.build_univar(cols, y, True)
+
+                else:
+                    plt.show()
+            except:
+                print("Failed to plot for col:" + str(col))
+                continue
 
 
     def build_univar(self, cols: list = None, y: list = None, with_hist: bool = False):
@@ -75,30 +84,37 @@ class visualize:
             y = np.zeros(self.sub_df.shape[0])
 
         for col in cols:
-            slope, intercept, r_value, p_value, std_err = stats.linregress(self.sub_df[col], y)
-            result_label = self.__get_result_label(r_value, p_value)
-            
-            #don't plot results with an r_value < 0 or an r_value below the threshold
-            if self.rsq_threshold is not None and self.rsq_threshold > r_value:
-                print("r^2 for ", col, "was below the threshold.")
+            try:
+                slope, intercept, r_value, p_value, std_err = stats.linregress(self.sub_df[col], y)
+                result_label = self.__get_result_label(r_value, p_value)
+
+                #don't plot results with an r_value < 0 or an r_value below the threshold
+                if self.rsq_threshold is not None and self.rsq_threshold > r_value:
+                    print("r^2 for ", col, "was below the threshold.")
+                    continue
+
+                #plot 
+                fit_line = intercept+slope*self.sub_df[col]
+                plt.scatter(self.sub_df[col], y,color="black",marker="s",alpha=0.5)    
+                plt.plot(self.sub_df[col],fit_line,color="black")
+                plt.xlabel(col)
+                plt.ylabel("y") # "$ΔΔG^{≠}$"  "Yield"
+
+                #handle titles
+                if with_hist:
+                    plt.suptitle("\n x = "+col+"\n"+result_label, y = 1)
+                else:
+                    plt.title(result_label)
+                plt.show()
+            except:
+                print("Couldn't plot for col:" + str(col))
                 continue
                 
-            #plot 
-            fit_line = intercept+slope*self.sub_df[col]
-            plt.scatter(self.sub_df[col], y,color="black",marker="s",alpha=0.5)    
-            plt.plot(self.sub_df[col],fit_line,color="black")
-            plt.xlabel(col)
-            plt.ylabel("y") # "$ΔΔG^{≠}$"  "Yield"
-            
-            #handle titles
-            if with_hist:
-                plt.suptitle("\n x = "+col+"\n"+result_label, y = 1)
-            else:
-                plt.title(result_label)
-            plt.show()                     
 
     def build_bubble_plot(self, features: list = None, bp_x: list = None, bp_y: list = None, bp_size: list = None, layer: bool = False):
-        
+        '''
+        Bubble plot, more than one feature can be plotted
+        '''  
         #validate features
         features = self.__validate_columns(features)
         if features is None:
@@ -121,26 +137,50 @@ class visualize:
             plt.title(feature)
             plt.show()
             
-    def __get_result_label(self, rsq, pval):
-        """
-        This method gets a label for the regression plots using r^2 and pvalues 
-        """
-        if pval > 0.01:
-            return "R^2 = {:.2f}; p-value = {:.2f}".format(rsq**2,pval)
-        return "R^2 = {:.2f}; p-value = {:.2E}".format(rsq**2,pval)
-    
-    
-    def __validate_columns(self, cols):
-        """
-        This method checks to make sure that the columns specified for the plot exist.
-        """
-        if cols is None:
-            return self.curr_cols
-        elif all(col in self.curr_cols for col in cols):
-            return cols
-        else:
-            return None
+       
+    def build_bubble_plot_virtual(self, features: list = None, bp_x: list = None, bp_y: list = None, bp_size: list = None, layer: bool = False):
+        '''
+        Bubble plot that uses "Virtual" feature
+        '''         
+        #validate features
+        features = self.__validate_columns(features)
+        if features is None:
+            print(self.except_message+"There are columns in your list that do not exist in the dataframe.")
+            return
+
+        if bp_x is None:
+            bp_x = np.zeros(self.sub_df.shape[0])        
+
+        if bp_y is None:
+            bp_y = np.zeros(self.sub_df.shape[0]) 
+            
+        #plot
+        plt.figure()
+        palette = itertools.cycle(sns.color_palette())
+        for feature in features:
+            sns.scatterplot(data=self.sub_df[feature], x=bp_x, y=bp_y, size=bp_size, sizes=(50, 300), alpha = 0.5, hue=self.sub_df['virtual'], style=self.sub_df['virtual'], color=next(palette), marker="D")            
+            plt.tight_layout()
+            plt.legend(bbox_to_anchor=(1.01,1),loc=2,borderaxespad=0)
+            plt.title(feature + "\n parm v parm sized by y")
+            plt.show()
+            
+    def correlation_map(self, features: list = None):
+        #validate features
+        features = self.__validate_columns(features)
         
+        if features is None:
+            print(self.except_message+"There are columns in your list that do not exist in the dataframe.")
+            return        
+        
+        X = self.sub_df[features].to_numpy()
+        corrmap = np.corrcoef(X.T)
+        sns.heatmap(corrmap,center=0, annot=False, cmap="coolwarm", cbar=True)
+        plt.xticks(range(len(features)),features, fontsize=10, rotation=90)
+        plt.yticks(range(len(features)),features, fontsize=10)
+        plt.show()
+        
+    ################ Convenience/utility class methods ################   
+    
     def inlude_features(self, feature_list: list = None):
         """
         This method allows a user to plot only a certain features by providing the feature names in a list.
@@ -181,4 +221,29 @@ class visualize:
         self.sub_df = self.df.copy()
         self.curr_cols = list(self.sub_df.columns)
         print("All features in your original dataframe can be included in visualizations.")
+
+
+    ################ Private class methods ################    
+
+    def __get_result_label(self, rsq, pval):
+        """
+        This method gets a label for the regression plots using r^2 and pvalues 
+        """
+        if pval > 0.01:
+            return "R^2 = {:.2f}; p-value = {:.2f}".format(rsq**2,pval)
+        return "R^2 = {:.2f}; p-value = {:.2E}".format(rsq**2,pval)
+    
+    
+    def __validate_columns(self, cols):
+        """
+        This method checks to make sure that the columns specified for the plot exist.
+        """
+        if cols is None:
+            return self.curr_cols
+        elif all(col in self.curr_cols for col in cols):
+            return cols
+        else:
+            return None
+        
+
             
