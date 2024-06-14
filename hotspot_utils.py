@@ -6,6 +6,10 @@ import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 import copy
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
+from matplotlib.colors import ListedColormap,LinearSegmentedColormap
+import matplotlib.patches as mpatches
+from matplotlib import colors as mcolors
 from itertools import repeat
 import random
 
@@ -50,7 +54,6 @@ def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_met
 
         all_thresholds.append(temp_threshold)
     return all_thresholds
-
 
 def hs_next_thresholds_fast(hs:Hotspot, all_thresholds:list[Threshold]) -> list[Hotspot]:
     """
@@ -115,7 +118,6 @@ def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, x_la
 
     return all_hotspots
 
-
 def prune_hotspots(hotspots:list[Hotspot], percentage:int, evaluation_method:str) -> list[Hotspot]:
     """
     Given a list of hotspots, returns the top percentage back.
@@ -137,7 +139,7 @@ def prune_hotspots(hotspots:list[Hotspot], percentage:int, evaluation_method:str
     
     return hs_out
 
-def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_labels:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[int], list[int]]:
+def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_labels:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[str], list[str]]:
     """
     Given the main dataframe and some parameters, return lists of y index values for a training and test set
 
@@ -242,3 +244,286 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_
         plt.show()
 
     return training_set, test_set
+
+def plot_threshold(hs:Hotspot, subset:str = 'all', coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = '% Yield', active_label:str = 'Active', inactive_label:str = 'Inactive'):
+    """
+    Plot a single, double, or triple threshold by calling the relevant function
+
+    :hs: Hotspot object to plot
+    :subset: 'all', 'train', or 'test'; indicates which subset to show on the plot
+    :coloring: 'scaled' or 'binary'; indicates if points should be colored based on actual output values or by output category
+    :gradient_color: the color scheme applied to the heatmap, default 'Oranges'
+    :output_label: default '% Yield'
+    """
+    if(len(hs.thresholds)==1):
+        plot_single_threshold(hs, subset, coloring, gradient_color, output_label, active_label, inactive_label)
+    elif(len(hs.thresholds)==2):
+        plot_double_threshold(hs, subset, coloring, gradient_color, output_label, active_label, inactive_label)
+    elif(len(hs.thresholds)==3):
+        plot_triple_threshold(hs, subset, coloring, gradient_color, output_label, active_label, inactive_label)
+    else:
+        print(f'Unable to plot {len(hs.thresholds)} thresholds')
+
+def plot_single_threshold(hs:Hotspot, subset:str = 'all', coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = '% Yield', active_label:str = 'Active', inactive_label:str = 'Inactive'):
+    """
+    Plot a single threshold in 2 dimensions
+
+    :hs: Hotspot object to plot
+    :subset: 'all', 'train', or 'test'; indicates which subset to show on the plot
+    :coloring: 'scaled' or 'binary'; indicates if points should be colored based on actual output values or by output category
+    :gradient_color: the color scheme applied to the heatmap, default 'Oranges'
+    :output_label: default '% Yield'
+    """
+
+    x_col = hs.thresholds[0].index
+    plt.figure(figsize=(12, 8))
+
+    # This section auto-scales the plot
+    x_min = float(min(hs.data_df.loc[:, x_col]))
+    x_max = float(max(hs.data_df.loc[:, x_col]))
+    y_min = float(min(hs.data_df.loc[:, 'response']))
+    y_max = float(max(hs.data_df.loc[:, 'response']))
+
+    dx = abs(x_min - x_max)
+    dy = abs(y_min - y_max)
+
+    x_min = x_min - abs(dx * 0.05)
+    x_max = x_max + abs(dx * 0.05)
+    y_min = y_min - abs(dy * 0.05)
+    y_max = y_max + abs(dy * 0.05)
+    
+    # Set which points to plot based on the subset parameter
+    if(subset == 'all'):
+        points_to_plot = hs.data_df.index
+    elif(subset == 'train'):
+        points_to_plot = hs.training_set
+    elif(subset == 'test'):
+        points_to_plot = hs.test_set
+    else:
+        points_to_plot = []
+    
+    # Change how the points are colored, controlled by the coloring parameter
+    if(coloring=='scaled'):
+        mapping_cl = hs.data_df.loc[points_to_plot, 'response']
+    elif(coloring=='binary'):
+        mapping_cl = hs.data_df.loc[points_to_plot, 'y_class']
+    else:
+        mapping_cl = hs.data_df.loc[points_to_plot, 'response']
+
+    # This is where it selects which descriptors to plot
+    x = hs.data_df.loc[points_to_plot, x_col]
+    y = hs.data_df.loc[points_to_plot, 'response']
+    plt.scatter(x, y, c = mapping_cl, cmap = gradient_color, edgecolor ='black', s = 100)
+    
+    # Set the gradient bar or binary legend
+    if(coloring == 'scaled'):
+        cbar = plt.colorbar(plt.gca().collections[0], shrink=1)
+        cbar.set_label(output_label, rotation=90, size=25)     
+        cbar.ax.tick_params(labelsize=18)   
+    elif(coloring == 'binary'):
+        colormap = plt.get_cmap(gradient_color)
+        active_color = mcolors.to_hex(colormap(1.0))
+        inactive_color = mcolors.to_hex(colormap(0.0))
+        active_patch = mpatches.Patch(color=active_color, label=active_label, edgecolor='black')
+        inactive_patch = mpatches.Patch(color=inactive_color, label=inactive_label, edgecolor='black')
+        plt.legend(handles=[active_patch, inactive_patch], fontsize=15, loc='upper right', edgecolor='black')
+ 
+    
+    # Draw the threshold line
+    plt.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
+    # Draw y_cut line
+    plt.axhline(y=hs.y_cut, color='r', linestyle='--')
+
+    # Axis setup
+    plt.xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}',fontsize=25)
+    plt.ylabel(output_label,fontsize=25)
+    plt.xticks(fontsize=18)
+    plt.xlim(x_min, x_max)
+    plt.locator_params(axis='x', nbins=5)
+    plt.yticks(fontsize=18)
+    plt.ylim(y_min, y_max)
+    plt.locator_params(axis='y', nbins=4)
+
+    plt.title(f'{hs.thresholds[0].feature_name} Threshold', fontsize = 25)
+    
+    plt.show()
+
+def plot_double_threshold(hs:Hotspot, subset:str = 'all', coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = 'Yield (%)', active_label:str = 'Active', inactive_label:str = 'Inactive'):
+    """
+    Plot a double threshold in 2 dimensions
+
+    :subset: 'all', 'train', or 'test'; indicates which subset to show on the plot
+    :coloring: 'scaled' or 'binary'; indicates if points should be colored based on actual output values or by output category
+    :gradient_color: the color scheme applied to the heatmap, default 'Oranges'
+    :output_label: default 'Yield (%)'
+    """
+
+    x_col,y_col = hs.thresholds[0].index, hs.thresholds[1].index
+    plt.figure(figsize=(12, 8))
+
+    # This section auto-scales the plot
+    x_min = float(min(hs.data_df.loc[:, x_col]))
+    x_max = float(max(hs.data_df.loc[:, x_col]))
+    y_min = float(min(hs.data_df.loc[:, y_col]))
+    y_max = float(max(hs.data_df.loc[:, y_col]))
+
+    dx = abs(x_min - x_max)
+    dy = abs(y_min - y_max)
+
+    x_min = x_min - abs(dx * 0.05)
+    x_max = x_max + abs(dx * 0.05)
+    y_min = y_min - abs(dy * 0.05)
+    y_max = y_max + abs(dy * 0.05)
+    
+    # Set which points to plot based on the subset parameter
+    if(subset == 'all'):
+        points_to_plot = hs.data_df.index
+    elif(subset == 'train'):
+        points_to_plot = hs.training_set
+    elif(subset == 'test'):
+        points_to_plot = hs.test_set
+    else:
+        points_to_plot = []
+    
+    # Change how the points are colored, controlled by the coloring parameter
+    if(coloring=='scaled'):
+        mapping_cl = hs.data_df.loc[points_to_plot, 'response']
+    elif(coloring=='binary'):
+        mapping_cl = hs.data_df.loc[points_to_plot, 'y_class']
+    else:
+        mapping_cl = hs.data_df.loc[points_to_plot, 'response']
+
+    # This is where it selects which descriptors to plot
+    x = hs.data_df.loc[points_to_plot,x_col]
+    y = hs.data_df.loc[points_to_plot,y_col]
+    plt.scatter(x, y, c=mapping_cl,cmap=gradient_color, edgecolor='black', s=100)  
+
+    # Draw threshold lines
+    plt.axhline(y=hs.thresholds[1].cut_value, color='black', linestyle='--')
+    plt.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
+    
+    # Set the gradient bar or binary legend
+    if(coloring == 'scaled'):
+        cbar = plt.colorbar(plt.gca().collections[0], shrink=1)
+        cbar.set_label(output_label, rotation=90, size=18)
+    elif(coloring == 'binary'):
+        colormap = plt.get_cmap(gradient_color)
+        active_color = mcolors.to_hex(colormap(1.0))
+        inactive_color = mcolors.to_hex(colormap(0.0))
+        active_patch = mpatches.Patch(color=active_color, label=active_label, edgecolor='black')
+        inactive_patch = mpatches.Patch(color=inactive_color, label=inactive_label, edgecolor='black')
+        plt.legend(handles=[active_patch, inactive_patch], fontsize=15, loc='upper right', edgecolor='black')
+
+    # Axis setup
+    plt.xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}', fontsize = 15)
+    plt.ylabel(f'{hs.thresholds[1].feature_label} {hs.thresholds[1].feature_name}', fontsize = 15)
+    plt.xticks(fontsize = 18)
+    plt.xlim(x_min, x_max)
+    plt.locator_params(axis = 'x', nbins = 5)
+    plt.yticks(fontsize = 18)
+    plt.ylim(y_min, y_max)
+    plt.locator_params(axis = 'y', nbins = 4)
+
+    # Print the title of the plot
+    plt.title(f'{hs.thresholds[0].feature_name} x {hs.thresholds[1].feature_name}', fontsize = 20)
+
+    plt.show()
+
+def plot_triple_threshold(hs:Hotspot, subset:str ='all', coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = '% Yield', active_label:str = 'Active', inactive_label:str = 'Inactive'):
+    """
+    Plot a triple threshold in 3 dimensions
+
+    :subset: 'all', 'train', or 'test'; indicates which subset to show on the plot
+    :coloring: 'scaled' or 'binary'; indicates if points should be colored based on actual output values or by output category
+    :gradient_color: the color scheme applied to the heatmap, default 'Oranges'
+    :output_label: default '% Yield'
+    """
+
+    x_col,y_col,z_col = hs.thresholds[0].index, hs.thresholds[1].index, hs.thresholds[2].index
+    
+    # Auto-scale the plot to your data
+    x_min = float(min(hs.data_df.loc[:, x_col]))
+    x_max = float(max(hs.data_df.loc[:, x_col]))
+    y_min = float(min(hs.data_df.loc[:, y_col]))
+    y_max = float(max(hs.data_df.loc[:, y_col]))
+    z_min = float(min(hs.data_df.loc[:, z_col]))
+    z_max = float(max(hs.data_df.loc[:, z_col]))
+
+    dx = abs(x_min - x_max)
+    dy = abs(y_min - y_max)
+    dz = abs(z_min - z_max)
+
+    x_min = x_min - abs(dx * 0.05)
+    x_max = x_max + abs(dx * 0.05)
+    y_min = y_min - abs(dy * 0.05)
+    y_max = y_max + abs(dy * 0.05)
+    z_min = z_min - abs(dz * 0.05)
+    z_max = z_max + abs(dz * 0.05)
+
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(111, projection = '3d')
+
+    # Set which points to plot based on the subset parameter
+    if(subset == 'all'):
+        points_to_plot = hs.data_df.index
+    elif(subset == 'train'):
+        points_to_plot = hs.training_set
+    elif(subset == 'test'):
+        points_to_plot = hs.test_set
+    else:
+        points_to_plot = []
+        
+    # Change how the points are colored, controlled by the coloring parameter
+    if(coloring=='scaled'):
+        mapping_cl = hs.data_df.loc[points_to_plot, 'response']
+    elif(coloring=='binary'):
+        mapping_cl = hs.data_df.loc[points_to_plot, 'y_class']
+    else:
+        mapping_cl = hs.data_df.loc[points_to_plot, 'response']
+
+    # Actually plot the data
+    x = hs.data_df.loc[points_to_plot,x_col]
+    y = hs.data_df.loc[points_to_plot,y_col]
+    z = hs.data_df.loc[points_to_plot,z_col]
+    ax.scatter(x, y, z, c=mapping_cl, cmap=gradient_color, alpha=0.95, marker="s", s=50, edgecolors='k') 
+        
+    # Plot the z-axis threshold
+    temp_x = np.linspace(x_min, x_max, num=10)
+    temp_y = np.linspace(y_min, y_max, num=10)
+    temp_x, temp_y = np.meshgrid(temp_x, temp_y)
+    temp_z = hs.thresholds[2].cut_value + 0 * temp_x + 0 * temp_y
+    ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray')
+    
+    # Plot the x-axis threshold
+    temp_y = np.linspace(y_min, y_max, num=10)
+    temp_z = np.linspace(z_min, z_max, num=10)
+    temp_z, temp_y = np.meshgrid(temp_z, temp_y)
+    temp_x = hs.thresholds[0].cut_value + 0 * temp_z + 0 * temp_y
+    ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray') 
+    
+    # Plot the y-axis threshold
+    temp_x = np.linspace(x_min, x_max, num = 10)
+    temp_z = np.linspace(z_min, z_max, num = 10)
+    temp_x, temp_z = np.meshgrid(temp_x, temp_z)
+    temp_y = hs.thresholds[1].cut_value + 0 * temp_x + 0 * temp_z
+    ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray')
+    
+    plt.xticks(fontsize = 10) 
+    plt.yticks(fontsize = 10)
+
+    # Set axes labels
+    ax.set_xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}',fontsize=12.5)
+    ax.set_ylabel(f'{hs.thresholds[1].feature_label} {hs.thresholds[1].feature_name}',fontsize=12.5)
+    ax.set_zlabel(f'{hs.thresholds[2].feature_label} {hs.thresholds[2].feature_name}',fontsize=12.5)
+    plt.locator_params(axis='y', nbins=8)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_zlim(z_min, z_max)
+    
+    # Set the gradient bar on the side
+    if(coloring == 'scaled'):
+        cbar = plt.colorbar(plt.gca().collections[0], shrink=0.5)
+        cbar.set_label(output_label, rotation=90, size=18)
+
+    plt.show()
