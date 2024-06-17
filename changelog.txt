@@ -1,0 +1,3 @@
+Manual selection of features - removed built in method to try all add one parameter or remove one parameter models
+Forward stepwise selection based on p-values was removed due to not having the required stepwise_selection2 module
+other forward feature selection implementations - thrown out because it doesn't seem useful to me
