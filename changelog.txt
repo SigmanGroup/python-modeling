@@ -1,3 +1,25 @@
+##########
+Directory Organization
+##########
+
+[]  forwardselect_q5.py doesn't seem to be used anywhere and I wan't to delete it.
+
+##########
+Notebook Cells
+##########
+
 Manual selection of features - removed built in method to try all add one parameter or remove one parameter models
 Forward stepwise selection based on p-values was removed due to not having the required stepwise_selection2 module
 other forward feature selection implementations - thrown out because it doesn't seem useful to me
+
+
+##########
+MLR algorithmic cleaning
+##########
+
+[]  I want to remove the {usescore} parameter from the Model object, which currently is a flag to use Q2 or not. It looks like the step_par function uses it, but it's probably cleaner to always calculate Q2 and let other functions decide whether to use it.
+[]  I want to remove the {scores_r2} dictionary since I think it doesn't give any additional information above the dictionary{models[terms].r2}
+[]  Same deal for {scores_q2}.
+[]  I need to combine loo_q2.py into mlr_utils.py and remove the need for the q2_par function.
+
+The algorithm runs all one and two parameter models, then at the end of each step only keeps the top step_number * {n_candidates} models to take forward.
