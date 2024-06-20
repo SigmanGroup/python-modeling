@@ -6,6 +6,7 @@ from sklearn import metrics
 import loo_q2 as loo
 import itertools
 import time
+from sklearn.model_selection import RepeatedKFold, LeaveOneOut
 
 import multiprocessing
 nproc = max([1,multiprocessing.cpu_count()-2]) # Set the number of CPUs to use in parallel computation
@@ -29,18 +30,26 @@ class Model:
         self.formula = '1 + ' + ' + '.join(terms)
         self.model = regression_type().fit(X,y)
         self.r2 = self.model.score(X,y)
+
+        # q2 is only calculated when requested as it is computationally expensive
         if usescore=='q2':
             self.q2 = loo.q2_df(X,y,regression_type())[0]
 
-
-def filter_unique(scores:dict, step:int):
+def filter_unique(models:dict, step:int, comparison_score:str = 'r2'):
     """
     Sort through the models in the scores dictionary and return a list of terms-tuples that have less than n parameters in common.
     N here is determined by the step number: 1 for up to 4-term-models; 2 for 5 to 7 terms; 3 for 8+ terms.
     When two models have more than n parameters in common, the one with the lower score is removed.
     """
-    models_sorted = sorted(scores, key=scores.get, reverse=True)
-    
+    # models_sorted = sorted(scores, key=scores.get, reverse=True)
+    if(comparison_score == 'r2'):
+        models_sorted = sorted(models, key=lambda model: models[model].r2, reverse=True)
+    elif(comparison_score == 'q2'):
+        models_with_q2 = [model for model in models if hasattr(models[model], 'q2')]
+        models_sorted = sorted(models_with_q2, key=lambda model: models[model].q2, reverse=True)
+    else:
+        raise ValueError('Invalid comparison score. Please use "r2" or "q2"')
+
     # Iterate through the sorted models list until you find one where the number of parameters is equal to the step number
     reference_model_index = 0
     while len(models_sorted[reference_model_index]) != step: # use the best model from the current step as reference
@@ -69,9 +78,10 @@ def filter_unique(scores:dict, step:int):
             
     return(unique_models)
 
-def step_par(terms:tuple, data:pd.DataFrame, response:str, regression_type, usescore:str = 'r2'):
+def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:type, usescore:str = 'r2'):
     """
     Creates a Model object from the data passed to it, then returns a bunch of stuff that's probably not necessary.
+    Predominately used for parallel processing in the bidirectional_stepwise_regression function.
 
     :terms: Tuple of x# terms
     :data: Dataframe containing all training parameters and responses with x# parameter labels
@@ -79,51 +89,78 @@ def step_par(terms:tuple, data:pd.DataFrame, response:str, regression_type, uses
     :regression_type: The type of regressor to use
     :usescore: 'q2', 'r2'; What statistic to use in comparing models
     """
-    #todo: implement checks for p-value of added term
-    terms = tuple(terms)
+    # terms = tuple(terms)
     model = Model(terms, data.loc[:,terms], data[response], regression_type, usescore) 
     if usescore == 'q2':
         score = model.q2    
     elif usescore == 'r2':
         score = model.r2
-    #implement weighted average of several scores per model    
+    
     return(terms,model,score,response)
 
-def q2_par(terms,X,y,regression_type):
-    """This is just a call to loo.q2_df. Why even have this function?"""
-    cand_q2 = loo.q2_df(X,y,regression_type())[0]
-    return(terms,cand_q2)
+def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()):
+    """
+    Calculates the q^2 score for a given data set.
+    Returns the score and the predictions.
 
-# Lots of variable should be renamed
-# It looks like when a model is created it calculates q^2, so why do we need to set up additional q^2 calculations?
-def ForwardStep_py(data:pd.DataFrame, response:str, n_steps:int = 3, n_candidates:int = 30 , regression_type=LinearRegression, collinearity_cutoff:float = 0.5):
+    :X: Dataframe containing only parameters for the model
+    :y: Dataframe containing the response variable
+    :model: The type of regressor to use
+    """
+    loo = LeaveOneOut()
+    ytests = []
+    ypreds = []
+    
+    for train_idx, test_idx in loo.split(X):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx] #requires arrays
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+        
+        model.fit(X_train,y_train) 
+        y_pred = model.predict(X_test)
+            
+        ytests += list(y_test)
+        ypreds += list(y_pred)
+            
+    rr = metrics.r2_score(ytests, ypreds)
+    return(rr,ypreds)
+
+def q2_parallel(terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type:type) -> dict:
+    """This is just a call to calculate_q2 set up for parallel processing with the returns needed in bidirectional_stepwise_regression."""
+    # q2_score = loo.q2_df(X,y,regression_type())[0]
+    q2_score = calculate_q2(X,y,regression_type())[0]
+    return_dict = {
+        'terms':terms,
+        'q2_score':q2_score,
+        }
+    return(return_dict)
+
+def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_steps:int = 3, n_candidates:int = 30 , regression_type:type=LinearRegression, collinearity_cutoff:float = 0.5):
     """
     Does a bunch of stuff to put models together
 
     :data: Dataframe containing all training parameters and responses with x# parameter labels
-    :response: Name of the response column in data
+    :response_label: Name of the response column in data
     :n_steps: Number of parameters in the largest models desired
-    :n_candidates: Number of models to carry through each step
+    :n_candidates: Number used in determining how many models to carry through each step
     :regression_type: The type of regressor to use
     :collinearity_cutoff: parameters with an R^2 greater than this are considered collinear (and won't appear in the same model?)
     """
     start_time = time.time() # Set start to report how long the process takes
     pool = Parallel(n_jobs=nproc,verbose=0)
 
-    # Pull the list of x# features and take out the response column label
+    # Pull the list of x# features and take out the response column
     features = list(data.columns)
-    features.remove(response)
+    features.remove(response_label)
     
     # Set up the correlation_map and collinearity cutoff in a comparable way
     correlation_map = data.corr() # pearson correlation coefficient R: -1 ... 1
     collinearity_cutoff = np.sqrt(collinearity_cutoff) # convert from R2 to R
 
-    # Initialize some empty dictionaries
     # {models} is a dictionary of term tuples and their associated Model objects
-    models,scores_r2,scores_q2 = {},{},{}
+    models = {}
 
     for step in [1,2]:
-        print(f"Step {step}")
+        print(f'Starting {step} parameter models. Total time taken (sec): %0.2f' %((time.time()-start_time)))
 
         # Create a list of tuples with all the parameter combos to be modeled in steps one and two
         if step == 1:
@@ -134,40 +171,35 @@ def ForwardStep_py(data:pd.DataFrame, response:str, n_steps:int = 3, n_candidate
             all_pairs = itertools.combinations(features,step)
             todo = sorted([(t1,t2) for (t1,t2) in all_pairs if abs(correlation_map.loc[t1,t2]) < collinearity_cutoff])   
 
-        # Create a queue of calls to the step_par function to create models from terms, then run them in parallel
+        # Create a queue of calls to the create_model function to create models from terms, then run them in parallel
         # The {modeling_results} variable is a list of tuples containing the terms, the model object, the score, and the response for each feature combination
-        modeling_results = pool(delayed(step_par)(terms, data, response, regression_type) for terms in todo)
+        modeling_results = pool(delayed(create_model)(terms, data, response_label, regression_type) for terms in todo)
 
         # Store information about the created models 
         for result in modeling_results:
-            if len(results) == 0: # In what situation would this happen?
+            if len(result) == 0: # In what situation would this happen?
                 continue
             models[result[0]] = result[1] # Expand the models dictionary with terms:Model
-            scores_r2[result[0]] = result[2] # Expand the scores_r2 dictionary with terms:score
 
-##### THIS SECTION THROUGH THE PRINT STATEMENT IS OBSOLETE IF THE MODELS ARE CALCULATING Q^2 ON CREATION #####
     # Calculate q^2 scores for the best models so far
-    n_models = min([2*(len(features) + n_candidates), len(scores_r2)]) # Some math to determine how many models to calculate q^2 for
-    candidates_r2 = sorted(scores_r2, key=scores_r2.get, reverse=True) # Sort the scores_r2 dictionary by r^2 and return a list of terms tuples in order
-    candidates_r2 = candidates_r2[:n_models] # Trim the list of terms tuples down to just the best n_models
-    candidates_r2 = tuple(candidates_r2) # Convert the list of terms tuples to a big tuple of terms tuples
+    n_models = min([2*(len(features) + n_candidates), len(models)]) # Some math to determine how many models to calculate q^2 for
+    best_r2_candidates = sorted(models, key=lambda terms: models[terms].r2, reverse=True)
+    best_r2_candidates = best_r2_candidates[:n_models] # Trim the list of terms tuples down to just the best n_models
+    best_r2_candidates = tuple(best_r2_candidates) # Convert the list of terms tuples to a big tuple of terms tuples
 
-    modeling_results = pool(delayed(q2_par)(terms, data.loc[:,terms], data[response], regression_type) for terms in candidates_r2)
+    modeling_results = pool(delayed(q2_parallel)(terms, data.loc[:,terms], data[response_label], regression_type) for terms in best_r2_candidates)
+
     for result in modeling_results:
-        models[result[0]].q2 = result[1] # Attach the q2 score to the associate Model object in the models dictionary
-        scores_q2[result[0]] = result[1] # Expand the scores_q2 dictionary with terms:score
-
-    print('Finished 1 and 2 parameter models. Total time taken (sec): %0.4f' %((time.time()-start_time)))
+        models[result['terms']].q2 = result['q2_score'] # Attach the q2 score to the associate Model object in the models dictionary
 
     # keep n best scoring models based on q^2
-    #candidates = tuple(sorted(scores_q2, key=scores_q2.get, reverse=True)[:n_candidates*step])
     n_models = n_candidates * step # Number of models to carry forward to the next step
-    sorted_candidates = sorted(scores_q2, key=scores_q2.get, reverse=True) # Sort the scores_q2 dictionary by q^2 score
-    candidates = tuple(sorted_candidates[:n_models]) # Convert the top n model list into a tuple of best model terms tuples
+    sorted_candidates = sorted(best_r2_candidates, key=lambda terms: models[terms].q2, reverse=True) # Sort the models dictionary by q^2 and return a list of terms tuples in order
+    candidates = tuple(sorted_candidates[:n_models]) # Convert the top n models in the list into a tuple of best model terms tuples
     
     while step < n_steps:
         step += 1
-        print(f'Starting {step} parameter models. Total time taken (sec): %0.4f' %((time.time()-start_time)))
+        print(f'Starting {step} parameter models. Total time taken (sec): %0.2f' %((time.time()-start_time)))
         time_step = time.time()
 
         # Cycle through all parameter tuples that add one term to the existing list
@@ -175,91 +207,111 @@ def ForwardStep_py(data:pd.DataFrame, response:str, n_steps:int = 3, n_candidate
         todo = set([tuple(sorted(set(candidate_model+(additional_term,)))) for (candidate_model,additional_term) in all_combinations]) # Using set() makes it so that no model gets duplicated terms and we don't get duplicated models
         todo = [i for i in todo if i not in models.keys()] # Remove any term combinations that have already been modeled
 
-        # Remove candidate term combinations from todo if any of the terms exceed the collinearity cap
-        # todo_rem = []
-        # for newcandidate in todo:
-        #     collin = max([correlation_map.loc[t1,t2] for (t1, t2) in itertools.combinations(newcandidate,2)])
-        #     if collin > collinearity_cutoff:
-        #         todo_rem.append(newcandidate)
-        # todo = sorted([i for i in todo if i not in todo_rem])
-
-        # Remove candidate term combinations from todo if any pair of terms in it exceeds the collinearity cutoff
+        # Remove candidate term combinations from todo if any pair of terms {t1, t2} in it exceeds the collinearity cutoff
         todo = [candidate for candidate in todo if max([correlation_map.loc[t1,t2] for (t1, t2) in itertools.combinations(candidate,2)]) <= collinearity_cutoff]
         todo.sort()
         
-        # Create a queue of calls to the step_par function to create models from terms, then run them in parallel
-        modeling_results = pool(delayed(step_par)(terms,data,response,regression_type) for terms in todo)
+        # Create a queue of calls to the create_model function to create models from terms, then run them in parallel
+        modeling_results = pool(delayed(create_model)(terms,data,response_label,regression_type) for terms in todo)
 
         for result in modeling_results:
             if len(result) == 0:
                 continue            
-            models[result[0]] = result[1] # Expand the models dictionary with terms:Model
-            scores_r2[result[0]] = result[2] # Expand the scores_r2 dictionary with terms:score     
-        
-        #implement checks for p-value of added term
+            models[result[0]] = result[1] # Expand the models dictionary with terms:Model     
  
-        print(f'\tFinished running all {step} parameter models. Time taken (sec): %0.4f' %((time.time()-time_step)))
+        print(f'\tFinished running all {step} parameter models. Time taken (sec): %0.2f' %((time.time()-time_step)))
         time_step = time.time()
 
-        n_models = min([step * (len(features) + n_candidates), len(scores_r2)]) # Some math to determine how many models to bring forward
-        sorted_candidates = sorted(scores_r2, key=scores_r2.get, reverse=True) # Sort the scores_r2 dictionary by r^2 and return a list of terms tuples in order
-        cands_a = [i for i in sorted_candidates if i not in scores_q2.keys()] # Limit cands_a to only models that did not appear in the last round
-        cands_a = cands_a[:n_models] # Trim the list of terms-tuples down to just the best n_models
+        #######################################################################
+        # This bit seems like an overly complicated way to get the best models
+        #######################################################################
+
+        n_models = min([step * (len(features) + n_candidates), len(models)]) # Some math to determine how many models to bring forward
+        best_r2_candidates = sorted(models, key=lambda model: models[model].r2, reverse=True)# Sort the models dictionary by r^2 and return a list of terms tuples in order
+        best_r2_candidates = [terms for terms in best_r2_candidates if not hasattr(models[terms], 'q2')] # Limit best_r2_candidates to only models that q2 has not been calculated for
+        best_r2_candidates = best_r2_candidates[:n_models] # Trim the list of terms-tuples down to just the best n_models
 
         # Get a second list of terms-tuples representing all unique terms combinations
-        cands_b = filter_unique(scores_r2, step)
+        unique_candidates = filter_unique(models, step, comparison_score='r2')
 
-        candidates_r2 = tuple(set(cands_a + cands_b))
+        # Combine the best and unique lists into a single list of terms-tuples
+        candidates_r2 = tuple(set(best_r2_candidates + unique_candidates))
 
         # Calculate q^2 in parallel for all models in candidates_r2
-        parall = pool(delayed(q2_par)(terms, data.loc[:,terms], data[response], regression_type) for terms in candidates_r2)
+        parall = pool(delayed(q2_parallel)(terms, data.loc[:,terms], data[response_label], regression_type) for terms in candidates_r2)
         for results in parall:
-            models[results[0]].q2 = results[1] # Attach the q2 score to the associate Model object in the models dictionary
-            scores_q2[results[0]] = results[1] # Expand the scores_q2 dictionary with terms:score
+            models[results['terms']].q2 = results['q2_score'] # Attach the q2 score to the associate Model object in the models dictionary
 
         # Run through the same logic, selecting by best q^2
-        cands_a = sorted(scores_q2, key=scores_q2.get, reverse=True)[:n_candidates*step]
-        cands_b = filter_unique(scores_q2,step)
-        candidates = tuple(set(cands_a+cands_b))
+        models_with_q2 = [model for model in models if hasattr(models[model], 'q2')]
+        best_q2_candidates = sorted(models_with_q2, key=lambda terms: models[terms].q2, reverse=True)[:n_candidates*step]
 
-        print(f'\tFinished identifying best and unique models. Time taken (sec): %0.4f' %((time.time()-time_step)))
+        unique_candidates = filter_unique(models, step, comparison_score='q2')
+
+        candidates = tuple(set(best_q2_candidates + unique_candidates))
+
+        print(f'\tFinished identifying best and unique models. Time taken (sec): %0.2f' %((time.time()-time_step)))
         time_step = time.time()
 
-        # remove 1 term
+        #######################################################################
+        # From here to the end of the loop takes the majority (%75) of the run time
+        #######################################################################
+
+        # Iterate through all candidates and all terms combinations with one removed
         for candidate in candidates:
+            for terms in itertools.combinations(candidate,len(candidate)-1):
 
-            # Iterate through all candidates and all terms combinations with one removed
-            for test in itertools.combinations(candidate,len(candidate)-1):
-                if test == (): # Skip if empty
+                if terms == (): # Skip if empty
                     continue
-                terms = test # Decide you don't like what you called a variable, but you also don't want to change it in the for loop line
-                if terms in scores_q2.keys(): # Skip if the new combination is already in the best models list
-                    continue
-                elif terms in models.keys(): # If the model has already been seen but q^2 hasn't been calculated, do so
-                    cand_q2 = loo.q2_df(data.loc[:,terms],data[response],regression_type())[0]
-                    models[terms].q2 = cand_q2
-                    scores_q2[terms] = cand_q2
+                elif terms not in models.keys(): # If the model hasn't been seen yet, calculate it
+                    models[terms] = Model(terms, data.loc[:,terms], data[response_label], regression_type)
+                elif terms in models.keys() and not hasattr(models[terms], 'q2'): # If the model has already been seen but q^2 hasn't been calculated, do so
+                    models[terms].q2 = loo.q2_df(data.loc[:,terms],data[response_label],regression_type())[0]
 
-                # Calculate model
-                models[terms] = Model(terms, data.loc[:,terms], data[response], regression_type) 
-                scores_r2[terms] = models[terms].r2      
-                scores_q2[terms] = models[terms].q2   
+        # Select best models from this batch based on q^2
+        models_with_q2 = [model for model in models if hasattr(models[model], 'q2')]
+        best_q2_candidates = sorted(models_with_q2, key=lambda terms: models[terms].q2, reverse=True)[:n_candidates*step]
 
-        cands_a = sorted(scores_q2, key=scores_q2.get, reverse=True)[:n_candidates*step]
-        cands_b = filter_unique(scores_q2,step)
-        candidates = tuple(set(cands_a + cands_b))
+        unique_candidates = filter_unique(models, step, comparison_score='q2')
 
-        print(f'\tFinished backwards step and filtering. Time taken (sec): %0.4f' %((time.time()-time_step)))
+        candidates = tuple(set(best_q2_candidates + unique_candidates))
+
+        print(f'\tFinished backwards step and filtering. Time taken (sec): %0.2f' %((time.time()-time_step)))
         time_step = time.time()
 
-    sortedmodels = sorted(scores_q2,key=scores_q2.get,reverse=True)
-    results_d = {
-        'Model': sortedmodels,
-        'n_terms': [models[terms].n_terms for terms in sortedmodels],
-        'R^2': [models[terms].r2 for terms in sortedmodels],
-        'Q^2': [models[terms].q2 for terms in sortedmodels],
+    models_with_q2 = [model for model in models if hasattr(models[model], 'q2')]
+    sorted_models = sorted(models_with_q2, key=lambda terms: models[terms].q2, reverse=True)
+
+    results_dict = {
+        'Model': sorted_models,
+        'n_terms': [models[terms].n_terms for terms in sorted_models],
+        'R^2': [models[terms].r2 for terms in sorted_models],
+        'Q^2': [models[terms].q2 for terms in sorted_models],
     }
-    results = pd.DataFrame(results_d)        
+    results = pd.DataFrame(results_dict)        
     print('Done. Time taken (minutes): %0.2f' %((time.time()-start_time)/60))
-    return(results,models,scores_q2,sortedmodels,candidates)        
+    return(results,models,sorted_models,candidates)        
             
+# Still need to clean this one up
+def repeated_k_fold(X_train,y_train,reg = LinearRegression(), k=3, n=100):
+    """Reapeated k-fold cross-validation. 
+    For each of n repeats, the (training)data is split into k folds. 
+    For each fold, this part of the data is predicted using the rest. 
+    Once this is done for all k folds, the coefficient of determination (R^2) of the predictions of all folds combined (= the complete data set) is evaluated
+    This is repeated n times and all n R^2 are returned for averaging/further analysis
+    """
+    
+    rkf = RepeatedKFold(n_splits=k, n_repeats=n)
+    r2_scores = []
+    y_validations,y_predictions = np.zeros((np.shape(X_train)[0],n)),np.zeros((np.shape(X_train)[0],n))
+    foldcount = 0
+    for i,foldsplit in enumerate(rkf.split(X_train)):
+        fold, rep = i%k, int(i/k) # Which of k folds. Which of n repeats
+        model = reg.fit(X_train[foldsplit[0]],y_train[foldsplit[0]]) # foldsplit[0]: k-1 training folds
+        y_validations[foldcount:foldcount+len(foldsplit[1]),rep] = y_train[foldsplit[1]] # foldsplit[1]: validation fold
+        y_predictions[foldcount:foldcount+len(foldsplit[1]),rep]  = model.predict(X_train[foldsplit[1]])
+        foldcount += len(foldsplit[1])
+        if fold+1==k:
+            foldcount = 0
+    r2_scores = np.asarray([metrics.r2_score(y_validations[:,rep],y_predictions[:,rep]) for rep in range(n)])
+    return(r2_scores)
