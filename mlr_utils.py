@@ -315,3 +315,14 @@ def repeated_k_fold(X_train,y_train,reg = LinearRegression(), k=3, n=100):
             foldcount = 0
     r2_scores = np.asarray([metrics.r2_score(y_validations[:,rep],y_predictions[:,rep]) for rep in range(n)])
     return(r2_scores)
+
+def external_r2(y_test_measured,y_test_predicted,y_train):
+    """Calculates the external R2 pred as described:
+    https://pdfs.semanticscholar.org/4eb2/5ff5a87f2fd6789c5b9954eddddfd1c59dab.pdf"""
+    
+    y_residual = y_test_predicted - y_test_measured
+    SS_residual = np.sum(y_residual**2)
+    y_varience = y_test_measured - np.mean(y_train)
+    SS_total = np.sum(y_varience**2)
+    r2_validation = 1-SS_residual/SS_total
+    return(r2_validation)

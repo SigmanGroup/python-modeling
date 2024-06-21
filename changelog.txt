@@ -10,17 +10,16 @@ Directory Organization
 Notebook Cells
 ##########
 
-Manual selection of features - removed built in method to try all add one parameter or remove one parameter models
-Forward stepwise selection based on p-values was removed due to not having the required stepwise_selection2 module
-other forward feature selection implementations - thrown out because it doesn't seem useful to me
+[]  Clean up the imports Cell
+[]  Remove the extra read in data cells
 
 
 ##########
 MLR algorithmic cleaning
 ##########
 
-[]  I need to combine loo_q2.py into mlr_utils.py and remove the need for the q2_par function.
 []  Figure out what each thing the full function returns is.
+[]  Clean up repeated_k_fold
 
 The algorithm runs all one and two parameter models, then at the end of each step only keeps the top step_number * {n_candidates} models to take into step 3, 
 	then step_number * {n_candidates + number of features} from there on out
