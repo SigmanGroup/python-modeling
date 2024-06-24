@@ -139,112 +139,6 @@ def prune_hotspots(hotspots:list[Hotspot], percentage:int, evaluation_method:str
     
     return hs_out
 
-def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_labels:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[str], list[str]]:
-    """
-    Given the main dataframe and some parameters, return lists of y index values for a training and test set
-
-    :data_df: The master dataframe with x# column names and the first two columns as 'response' and 'y_class'
-    :split: 'random', 'ks', 'y_equidist', 'define', 'none'; Type of split to use
-    :test_ratio: Ratio of the data to use as a test set
-    :x_labels: List of xID# parameter labels corresponding to the parameter column names in the dataframe
-    :response_label: The name of the response column in the dataframe
-    :randomstate: Seed to use when chosing the random split
-    :defined_training_set: Y indexes corresponding to a manual training set. Only used if split == 'define'
-    :defined_test_set: Y indexes corresponding to a manual test set. Only used if split == 'define'
-    :subset: The subset of y indexes to use for another split method, originally used for MLR after a classification algorithm
-    :verbose: Whether to print the extended report
-    """
-
-    import kennardstonealgorithm as ks
-
-    
-    if (subset == []):
-        data_df = temp_data_df.copy()
-    else:
-        data_df = temp_data_df.loc[subset, :].copy()
-
-    x = data_df[x_labels].to_numpy() # Array of just feature values (X_sel)
-    y = data_df[response_label].to_numpy() # Array of response values (y_sel)
-    test_size = int(len(data_df.index)*test_ratio) # Number of points in the test set
-    train_size = len(data_df.index) - test_size
-
-    if split == "random":
-        random.seed(a = randomstate)
-        test_set = random.sample(list(data_df.index), k = test_size)
-        training_set = [x for x in data_df.index if x not in test_set]
-
-    elif split == "ks":
-        # There may be some issues with test_set_index being formatted as an array and training_set_index being a list
-        training_set_index, test_set_index = ks.kennardstonealgorithm(x, train_size)
-        training_set = list(data_df.index[training_set_index])
-        test_set = list(data_df.index[test_set_index])
-
-    elif split == "y_equidist":
-        no_extrapolation = True
-        # Only difference I can see between extrapolation and no_extrapolation is that no_e cuts off the highest and lowest y values first
-        
-        if no_extrapolation:
-            # Rewritten from above to keep track of which points were removed for being equal to the min or max value
-            y_min = np.min(y)
-            y_max = np.max(y)
-            y_ks = np.array(([i for i in y if i not in [y_min,y_max]]))
-            y_ks_indices = [i for i, val in enumerate(y) if val != y_min and val != y_max]
-            y_not_ks_indices = [i for i, val in enumerate(y) if val == y_min or val == y_max]
-
-            # indices relative to y_ks:
-            y_ks_formatted = y_ks.reshape(np.shape(y_ks)[0], 1)
-            VS_ks,TS_ks = ks.kennardstonealgorithm(y_ks_formatted, test_size)
-
-            # indices relative to y_sel:
-            TS_ = sorted([y_ks_indices[i] for i in list(TS_ks)]+y_not_ks_indices) # Replaced minmax with y_not_ks_indices
-            VS_ = sorted([y_ks_indices[i] for i in VS_ks])
-
-        else:
-            VS_,TS_ = ks.kennardstonealgorithm(y.reshape(np.shape(y)[0],1),int((test_ratio)*np.shape(y)[0]))
-
-        training_set = list(data_df.index[TS_])
-        test_set = list(data_df.index[VS_])
-
-    elif split == 'define':
-        training_set = defined_training_set
-        test_set = defined_test_set
-
-    elif split == "none":
-        training_set = data_df.index.to_list()
-        test_set = []
-
-    else: 
-        raise ValueError("split option not recognized")
-    
-    if(verbose):
-        y_train = data_df.loc[training_set, response_label]
-        y_test = data_df.loc[test_set, response_label]
-
-        print(f"Training Set: {training_set}")
-        print(f"Test Set: {test_set}")
-        if (len(training_set) + len(test_set) == len(data_df.index)):
-            print('All indices accounted for!')
-        else:
-            print('Missing indices!')
-
-        print("Training Set mean: {:.3f}".format(np.mean(y_train)))
-        print("Test Set mean: {:.3f}".format(np.mean(y_test)))
-        # print("Shape X_train: {}".format(X_train.shape))
-        # print("Shape X_test:  {}".format(X_test.shape))   
-        plt.figure(figsize=(5, 5))
-        hist, bins = np.histogram(y,bins="auto")#"auto"
-        plt.hist(y_train, bins, alpha=0.5, label='y_train',color="black")
-        plt.hist(y_test, bins, alpha=0.5, label='y_test')
-        plt.legend(loc='best')
-        plt.xlabel("Output",fontsize=20)
-        plt.ylabel("N samples",fontsize=20)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-        plt.tight_layout()
-        plt.show()
-
-    return training_set, test_set
-
 def plot_threshold(hs:Hotspot, subset:str = 'all', coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = '% Yield', active_label:str = 'Active', inactive_label:str = 'Inactive'):
     """
     Plot a single, double, or triple threshold by calling the relevant function
@@ -527,3 +421,132 @@ def plot_triple_threshold(hs:Hotspot, subset:str ='all', coloring:str = 'scaled'
         cbar.set_label(output_label, rotation=90, size=18)
 
     plt.show()
+
+def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_labels:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[str], list[str]]:
+    """
+    Given the main dataframe and some parameters, return lists of y index values for a training and test set
+
+    :data_df: The master dataframe with x# column names and the first two columns as 'response' and 'y_class'
+    :split: 'random', 'ks', 'y_equidistant', 'define', 'none'; Type of split to use
+    :test_ratio: Ratio of the data to use as a test set
+    :x_labels: List of xID# parameter labels corresponding to the parameter column names in the dataframe
+    :response_label: The name of the response column in the dataframe
+    :randomstate: Seed to use when chosing the random split
+    :defined_training_set: Y indexes corresponding to a manual training set. Only used if split == 'define'
+    :defined_test_set: Y indexes corresponding to a manual test set. Only used if split == 'define'
+    :subset: The subset of y indexes to use for another split method, originally used for MLR after a classification algorithm
+    :verbose: Whether to print the extended report
+    """
+    
+    if (subset == []):
+        data_df = temp_data_df.copy()
+    else:
+        data_df = temp_data_df.loc[subset, :].copy()
+
+    x = data_df[x_labels].to_numpy() # Array of just feature values (X_sel)
+    y = data_df[response_label].to_numpy() # Array of response values (y_sel)
+    test_size = int(len(data_df.index)*test_ratio) # Number of points in the test set
+    train_size = len(data_df.index) - test_size
+
+    if split == "random":
+        random.seed(a = randomstate)
+        test_set = random.sample(list(data_df.index), k = test_size)
+        training_set = [x for x in data_df.index if x not in test_set]
+
+    elif split == "ks":
+        # There may be some issues with test_set_index being formatted as an array and training_set_index being a list
+        training_set_index, test_set_index = kennardstonealgorithm(x, train_size)
+        training_set = list(data_df.index[training_set_index])
+        test_set = list(data_df.index[test_set_index])
+
+    elif split == "y_equidistant":
+        no_extrapolation = True
+        # Only difference I can see between extrapolation and no_extrapolation is that no_e cuts off the highest and lowest y values first
+        
+        if no_extrapolation:
+            # Rewritten from above to keep track of which points were removed for being equal to the min or max value
+            y_min = np.min(y)
+            y_max = np.max(y)
+            y_ks = np.array(([i for i in y if i not in [y_min,y_max]]))
+            y_ks_indices = [i for i, val in enumerate(y) if val != y_min and val != y_max]
+            y_not_ks_indices = [i for i, val in enumerate(y) if val == y_min or val == y_max]
+
+            # indices relative to y_ks:
+            y_ks_formatted = y_ks.reshape(np.shape(y_ks)[0], 1)
+            VS_ks,TS_ks = kennardstonealgorithm(y_ks_formatted, test_size)
+
+            # indices relative to y_sel:
+            TS_ = sorted([y_ks_indices[i] for i in list(TS_ks)]+y_not_ks_indices) # Replaced minmax with y_not_ks_indices
+            VS_ = sorted([y_ks_indices[i] for i in VS_ks])
+
+        else:
+            VS_,TS_ = kennardstonealgorithm(y.reshape(np.shape(y)[0],1),int((test_ratio)*np.shape(y)[0]))
+
+        training_set = list(data_df.index[TS_])
+        test_set = list(data_df.index[VS_])
+
+    elif split == 'define':
+        training_set = defined_training_set
+        test_set = defined_test_set
+
+    elif split == "none":
+        training_set = data_df.index.to_list()
+        test_set = []
+
+    else: 
+        raise ValueError("split option not recognized")
+    
+    if(verbose):
+        y_train = data_df.loc[training_set, response_label]
+        y_test = data_df.loc[test_set, response_label]
+
+        print(f"Training Set: {training_set}")
+        print(f"Test Set: {test_set}")
+        if (len(training_set) + len(test_set) == len(data_df.index)):
+            print('All indices accounted for!')
+        else:
+            print('Missing indices!')
+
+        print("Training Set mean: {:.3f}".format(np.mean(y_train)))
+        print("Test Set mean: {:.3f}".format(np.mean(y_test)))
+        # print("Shape X_train: {}".format(X_train.shape))
+        # print("Shape X_test:  {}".format(X_test.shape))   
+        plt.figure(figsize=(5, 5))
+        hist, bins = np.histogram(y,bins="auto")#"auto"
+        plt.hist(y_train, bins, alpha=0.5, label='y_train',color="black")
+        plt.hist(y_test, bins, alpha=0.5, label='y_test')
+        plt.legend(loc='best')
+        plt.xlabel("Output",fontsize=20)
+        plt.ylabel("N samples",fontsize=20)
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
+        plt.tight_layout()
+        plt.show()
+
+    return training_set, test_set
+
+# Still need to clean this one up a bit
+def kennardstonealgorithm( X, k ):
+    X = np.array( X )
+    originalX = X
+    distancetoaverage = ( (X - np.tile(X.mean(axis=0), (X.shape[0], 1) ) )**2 ).sum(axis=1)
+    maxdistancesamplenumber = np.where( distancetoaverage == np.max(distancetoaverage) )
+    maxdistancesamplenumber = maxdistancesamplenumber[0][0]
+    selectedsamplenumbers = list()
+    selectedsamplenumbers.append(maxdistancesamplenumber)
+    remainingsamplenumbers = np.arange( 0, X.shape[0], 1)
+    X = np.delete( X, selectedsamplenumbers, 0)
+    remainingsamplenumbers = np.delete( remainingsamplenumbers, selectedsamplenumbers, 0)
+    for iteration in range(1, k):
+        selectedsamples = originalX[selectedsamplenumbers,:]
+        mindistancetoselectedsamples = list()
+        for mindistancecalculationnumber in range( 0, X.shape[0]):
+            distancetoselectedsamples = ( (selectedsamples - np.tile(X[mindistancecalculationnumber,:], (selectedsamples.shape[0], 1)) )**2 ).sum(axis=1)
+            mindistancetoselectedsamples.append( np.min(distancetoselectedsamples) )
+        maxdistancesamplenumber = np.where( mindistancetoselectedsamples == np.max(mindistancetoselectedsamples) )
+        maxdistancesamplenumber = maxdistancesamplenumber[0][0]
+        selectedsamplenumbers.append(remainingsamplenumbers[maxdistancesamplenumber])
+        X = np.delete( X, maxdistancesamplenumber, 0)
+        remainingsamplenumbers = np.delete( remainingsamplenumbers, maxdistancesamplenumber, 0)
+
+    return(selectedsamplenumbers, remainingsamplenumbers)

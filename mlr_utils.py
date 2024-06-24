@@ -31,7 +31,7 @@ class Model:
 
         # q2 is only calculated when requested as it is computationally expensive
         if usescore=='q2':
-            self.q2 = loo.q2_df(X,y,regression_type())[0]
+            self.q2 = calculate_q2(X,y,regression_type())[0]
 
 def filter_unique(models:dict, step:int, comparison_score:str = 'r2'):
     """
@@ -96,6 +96,7 @@ def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:t
     
     return(terms,model,score,response)
 
+# Haven't cleaned this up yet
 def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()):
     """
     Calculates the q^2 score for a given data set.
@@ -264,7 +265,7 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
                 elif terms not in models.keys(): # If the model hasn't been seen yet, calculate it
                     models[terms] = Model(terms, data.loc[:,terms], data[response_label], regression_type)
                 elif terms in models.keys() and not hasattr(models[terms], 'q2'): # If the model has already been seen but q^2 hasn't been calculated, do so
-                    models[terms].q2 = loo.q2_df(data.loc[:,terms],data[response_label],regression_type())[0]
+                    models[terms].q2 = calculate_q2(data.loc[:,terms],data[response_label],regression_type())[0]
 
         # Select best models from this batch based on q^2
         models_with_q2 = [model for model in models if hasattr(models[model], 'q2')]
