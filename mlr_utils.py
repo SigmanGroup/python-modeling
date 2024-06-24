@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression 
 from sklearn import metrics
-import loo_q2 as loo
 import itertools
 import time
 from sklearn.model_selection import RepeatedKFold, LeaveOneOut
@@ -12,7 +11,6 @@ import multiprocessing
 nproc = max([1,multiprocessing.cpu_count()-2]) # Set the number of CPUs to use in parallel computation
 from joblib import Parallel,delayed
 
-# Determine if usescore is ever relevant and then get rid of it
 class Model:
     def __init__(self, terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type, usescore:str = 'q2'):
         """
@@ -319,7 +317,7 @@ def repeated_k_fold(X_train,y_train,reg = LinearRegression(), k=3, n=100):
 def external_r2(y_test_measured,y_test_predicted,y_train):
     """Calculates the external R2 pred as described:
     https://pdfs.semanticscholar.org/4eb2/5ff5a87f2fd6789c5b9954eddddfd1c59dab.pdf"""
-    
+
     y_residual = y_test_predicted - y_test_measured
     SS_residual = np.sum(y_residual**2)
     y_varience = y_test_measured - np.mean(y_train)
