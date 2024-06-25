@@ -6,9 +6,12 @@ from sklearn import metrics
 import itertools
 import time
 from sklearn.model_selection import RepeatedKFold, LeaveOneOut
+import matplotlib.pyplot as plt
+from typing import Iterable
+from itertools import chain
 
 import multiprocessing
-nproc = max([1,multiprocessing.cpu_count()-2]) # Set the number of CPUs to use in parallel computation
+n_processors = max([1,multiprocessing.cpu_count()-2]) # Set the number of CPUs to use in parallel computation
 from joblib import Parallel,delayed
 
 class Model:
@@ -133,9 +136,12 @@ def q2_parallel(terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type:typ
         }
     return(return_dict)
 
-def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_steps:int = 3, n_candidates:int = 30 , regression_type:type=LinearRegression, collinearity_cutoff:float = 0.5):
+def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_steps:int = 3, n_candidates:int = 30 ,
+                                      regression_type:type=LinearRegression, collinearity_cutoff:float = 0.5, n_processors:int = n_processors):
     """
-    Does a bunch of stuff to put models together
+    Does a bunch of stuff to put models together. 
+    The algorithm runs all one and two parameter models, then keeps the top (step_number * {n_candidates}) models to take into step 3, 
+	    then prunes down to the top (step_number * {n_candidates + number of features}) at the end of each following step.
 
     :data: Dataframe containing all training parameters and responses with x# parameter labels
     :response_label: Name of the response column in data
@@ -145,7 +151,7 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
     :collinearity_cutoff: parameters with an R^2 greater than this are considered collinear (and won't appear in the same model?)
     """
     start_time = time.time() # Set start to report how long the process takes
-    pool = Parallel(n_jobs=nproc,verbose=0)
+    pool = Parallel(n_jobs=n_processors,verbose=0)
 
     # Pull the list of x# features and take out the response column
     features = list(data.columns)
@@ -325,3 +331,62 @@ def external_r2(y_test_measured,y_test_predicted,y_train):
     SS_total = np.sum(y_varience**2)
     r2_validation = 1-SS_residual/SS_total
     return(r2_validation)
+
+def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterable, y_predictions_test:Iterable, loo_predictions:Iterable = [],
+                   display_legend:bool = True, output_label:str = "Output",
+                   plot_size:tuple = (5,5), manual_limits:tuple = (None,None),
+                   training_color:str = "black", test_color:str = "#BE0000"):
+    '''
+    Plots the measured vs. predicted values for the training and test sets, as well as the leave-one-out predictions if provided.
+    
+    :y_train: The measured values for the training set
+    :y_predictions_train: The predicted values for the training set
+    :y_test: The measured values for the test set
+    :y_predictions_test: The predicted values for the test set
+    :loo_predictions: The predicted values for the leave-one-out set
+    :display_legend: Whether or not to display a legend on the plot
+    :output_label: The label to use for the output variable
+    :plot_size: The size of the plot to display
+    :manual_limits: The limits to use for the x and y axes
+    :training_color: The color to use for the training set points
+    :test_color: The color to use for the test set points
+    '''
+
+    # Set figure size
+    plt.figure(figsize=plot_size)
+    
+    # Set plot limits
+    if manual_limits[0] is None:
+        all_values = list(chain(y_train, y_predictions_train, y_test, y_predictions_test, loo_predictions))
+        max_value = max(all_values)
+        min_value = min(all_values)
+        delta = 0.04 * (max_value - min_value)
+        plt.xlim([min_value - delta, max_value + delta])
+        plt.ylim([min_value - delta, max_value + delta])
+    else:
+        plt.xlim(manual_limits[0], manual_limits[1])
+        plt.ylim(manual_limits[0], manual_limits[1])
+
+    # Plot the various data points
+    if loo_predictions:
+        plt.scatter(y_train, loo_predictions, label="LOO", color="black", marker=".", facecolor='none', s=200) # Plot the leave-one-out set
+    plt.scatter(y_train, y_predictions_train, label="Training", color=training_color, marker=".", s=200) # Plot the training set
+    plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set
+
+    # Add a legend if requested
+    if display_legend:
+        plt.legend(loc='lower right', fontsize=10)
+
+    # Add labels to the axes
+    plt.xlabel(output_label + " Measured", fontsize=18, fontweight='bold')
+    plt.ylabel(output_label + " Predicted", fontsize=18, fontweight='bold')
+
+    # Set the font sizes for the axes
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+
+    # Remove the top and right spines
+    plt.gca().spines['right'].set_color('none')
+    plt.gca().spines['top'].set_color('none')
+
+    plt.show()
