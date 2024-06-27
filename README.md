@@ -21,6 +21,6 @@ If you'd prefer to create your own environment, here is a list of known dependen
 9. boruta_py
 
 # Usage
-The full linear modeling workflow can be run using the NAME_CHANGED.ipynb notebook. Input data should be stored in the InputData folder and formatted similarly to the example file NAME_CHANGED.xlsx with a row of x# identifiers, a row of parameter names, and the parameter values. Experimental outputs can be in the same or different sheet.
+The full linear modeling workflow can be run using the Mattlab_modeling_v6.0.0.ipynb notebook. Input data should be stored in the InputData folder and formatted similarly to the example file Multi-Threshold Analysis Data.xlsx with a row of x# identifiers, a row of parameter names, and the parameter values. Experimental outputs can be in the same or different sheet.
 
 For cross-term generation or Boruta feature selection, run the feature_curation.ipynb notebook, which outputs an excel sheet that can be fed into the modeling script with minor modeification explained in the final cell.
