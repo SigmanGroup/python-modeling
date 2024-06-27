@@ -525,7 +525,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_
 
     return training_set, test_set
 
-# Still need to clean this one up a bit
+# Still need to clean this one up
 def kennardstonealgorithm( X, k ):
     X = np.array( X )
     originalX = X

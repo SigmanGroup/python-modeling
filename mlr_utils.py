@@ -99,8 +99,7 @@ def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:t
     
     return(terms,model,score,response)
 
-# Haven't cleaned this up yet
-def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()):
+def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()) -> tuple(float, list):
     """
     Calculates the q^2 score for a given data set.
     Returns the score and the predictions.
@@ -110,21 +109,24 @@ def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()):
     :model: The type of regressor to use
     """
     loo = LeaveOneOut()
-    ytests = []
-    ypreds = []
+    y_test_values = []
+    y_predicted_test_values = []
     
-    for train_idx, test_idx in loo.split(X):
-        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx] #requires arrays
-        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+    for training_points, test_point in loo.split(X):
+        x_train, x_test = X.iloc[training_points], X.iloc[test_point]
+        y_train, y_test = y.iloc[training_points], y.iloc[test_point]
         
-        model.fit(X_train,y_train) 
-        y_pred = model.predict(X_test)
+        model.fit(x_train, y_train) 
+        y_predictions = model.predict(x_test)
             
-        ytests += list(y_test)
-        ypreds += list(y_pred)
+        y_test_values.append(y_test.values[0])
+        y_predicted_test_values.append(y_predictions[0])
+        
+        # ytests += list(y_test)
+        # ypreds += list(y_predictions)
             
-    rr = metrics.r2_score(ytests, ypreds)
-    return(rr,ypreds)
+    q2_score = metrics.r2_score(y_test_values, y_predicted_test_values)
+    return(q2_score, y_predicted_test_values)
 
 def q2_parallel(terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type:type) -> dict:
     """This is just a call to calculate_q2 set up for parallel processing with the returns needed in bidirectional_stepwise_regression."""
@@ -297,29 +299,42 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
     print('Done. Time taken (minutes): %0.2f' %((time.time()-start_time)/60))
     return(results,models,sorted_models,candidates)        
             
-# Still need to clean this one up
-def repeated_k_fold(X_train,y_train,reg = LinearRegression(), k=3, n=100):
-    """Reapeated k-fold cross-validation. 
-    For each of n repeats, the (training)data is split into k folds. 
+def repeated_k_fold(x_train:pd.DataFrame, y_train:pd.DataFrame, k:int = 3, n:int = 100, regressor = LinearRegression()):
+    """
+    Reapeated k-fold cross-validation. 
+    For each of {n} repeats, the  training data is split into {k} folds. 
     For each fold, this part of the data is predicted using the rest. 
-    Once this is done for all k folds, the coefficient of determination (R^2) of the predictions of all folds combined (= the complete data set) is evaluated
+    Once this is done for all k folds, the coefficient of determination (R^2) of the predictions of all folds combined is evaluated
     This is repeated n times and all n R^2 are returned for averaging/further analysis
     """
-    
-    rkf = RepeatedKFold(n_splits=k, n_repeats=n)
-    r2_scores = []
-    y_validations,y_predictions = np.zeros((np.shape(X_train)[0],n)),np.zeros((np.shape(X_train)[0],n))
-    foldcount = 0
-    for i,foldsplit in enumerate(rkf.split(X_train)):
-        fold, rep = i%k, int(i/k) # Which of k folds. Which of n repeats
-        model = reg.fit(X_train[foldsplit[0]],y_train[foldsplit[0]]) # foldsplit[0]: k-1 training folds
-        y_validations[foldcount:foldcount+len(foldsplit[1]),rep] = y_train[foldsplit[1]] # foldsplit[1]: validation fold
-        y_predictions[foldcount:foldcount+len(foldsplit[1]),rep]  = model.predict(X_train[foldsplit[1]])
-        foldcount += len(foldsplit[1])
-        if fold+1==k:
-            foldcount = 0
-    r2_scores = np.asarray([metrics.r2_score(y_validations[:,rep],y_predictions[:,rep]) for rep in range(n)])
-    return(r2_scores)
+
+    # Set up the k-fold splitter
+    k_fold_splitter = RepeatedKFold(n_splits=k, n_repeats=n)
+
+    # Initialize lists to store the measured and predicted values for each repeat
+    y_measured_list = [[]]
+    y_predictions_list = [[]]
+
+    # Iterate through each of the k-fold splits, looping {k} times for each repeat
+    for i, (train_index, test_index) in enumerate(k_fold_splitter.split(x_train)):
+        # Track each of {n} repeats and make a new line in the lists at the start of each
+        repeat = int(i/k) 
+        if repeat >= len(y_measured_list):
+            y_measured_list.append([])
+            y_predictions_list.append([])
+
+        # Fit the model to the training data and predict the test data
+        model = regressor.fit(x_train.iloc[train_index], y_train.iloc[train_index])
+        y_predictions = model.predict(x_train.iloc[test_index])
+
+        # Store the measured and predicted values for this fold
+        y_measured_list[repeat].extend(y_train.iloc[test_index])
+        y_predictions_list[repeat].extend(y_predictions)
+
+    # Calculate the R^2 scores for each repeat
+    r2_scores = [metrics.r2_score(y_measured_list[repeat],y_predictions_list[repeat]) for repeat in range(n)]
+
+    return r2_scores
 
 def external_r2(y_test_measured,y_test_predicted,y_train):
     """Calculates the external R2 pred as described:
