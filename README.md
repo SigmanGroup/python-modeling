@@ -1,8 +1,25 @@
 # python-modeling
+This repository contains the Sigman lab workflow for linear modeling, primarily driven by bidirectional stepwise MLR, as well as tools for feature curation.
 
-To use: implemented as a Jupyter notebook, ideally the Excel file will be in the same directory as the scripts. 
-To set up conda environment: use the provided yml file 
+# Installation
+A conda environment is provided in the modeling_env_***.yml files. To create the environment, run \
+`conda env create --file=modeling_env_win.yml`\
+or\
+`conda env create --file=modeling_env_mac.yml`\
+depending on your opperating system and set the modeling environment as the kernel for the Jupyter notebook.
 
-conda env create -f modeling_environment.yml (sets up the environment with the necessary packages, only needs to be run once)
-conda activate modeling (activates the environment)
-  - if this doesn't work, it is likely because the yml was exported on a different platform than your machine. To troubleshoot, first try running the same command but with the modeling-environment_2.yml, which has no builds included. 
+# Requirements
+If you'd prefer to create your own environment, here is a list of known dependencies:
+1. numpy
+2. matplotlib
+3. pandas
+4. scipy
+5. seaborn
+6. statsmodel
+7. scikit-learn
+8. openpyxl
+
+# Usage
+The full linear modeling workflow can be run using the NAME_CHANGED.ipynb notebook. Input data should be stored in the InputData folder and formatted similarly to the example file NAME_CHANGED.xlsx with a row of x# identifiers, a row of parameter names, and the parameter values. Experimental outputs can be in the same or different sheet.
+
+For cross-term generation or Boruta feature selection, run the feature_curation.ipynb notebook, which outputs an excel sheet that can be fed into the modeling script with minor modeification explained in the final cell.

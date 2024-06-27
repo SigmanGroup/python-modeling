@@ -1,13 +1,8 @@
 from __future__ import annotations
-import numpy as np
-import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
 import copy
-import matplotlib
-import matplotlib.pyplot as plt
 
+import pandas as pd
 
-# Removed correlations entirely
 class Threshold:
     def __init__(self, index: str, cut_value: float, operator: str, feature_name:str, evaluation_method:str):
         """
@@ -47,7 +42,6 @@ class Hotspot:
         :evaluation_method: the metric used for comparing Hotspot quality
         :class_weight: dictionary linking classes [0, 1] to relative weights ([10, 1] by default)
         """
-
         # store some of the variables passed in when initialized
         self.data_df = data_df
         self.evaluation_method = evaluation_method

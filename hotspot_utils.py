@@ -1,18 +1,21 @@
 from __future__ import annotations
-import multiprocessing
-from hotspot_classes import Threshold, Hotspot
+import copy
+import random
+
 import numpy as np
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
-import copy
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
-from matplotlib.colors import ListedColormap,LinearSegmentedColormap
+# from matplotlib.colors import ListedColormap,LinearSegmentedColormap
 import matplotlib.patches as mpatches
 from matplotlib import colors as mcolors
-from itertools import repeat
-import random
 
+from hotspot_classes import Threshold, Hotspot
+
+# This supresses warnings that arise in the plotting functions
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
 
 def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_method:str, x_labelname_dict:dict, features:list[str] = ['empty']) -> list[Threshold]:
     """

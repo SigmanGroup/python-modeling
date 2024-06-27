@@ -1,18 +1,19 @@
 from __future__ import annotations
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import LinearRegression 
-from sklearn import metrics
 import itertools
 import time
-from sklearn.model_selection import RepeatedKFold, LeaveOneOut
-import matplotlib.pyplot as plt
 from typing import Iterable
 from itertools import chain
 
 import multiprocessing
 n_processors = max([1,multiprocessing.cpu_count()-2]) # Set the number of CPUs to use in parallel computation
 from joblib import Parallel,delayed
+
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression 
+from sklearn import metrics
+from sklearn.model_selection import RepeatedKFold, LeaveOneOut
+import matplotlib.pyplot as plt
 
 class Model:
     def __init__(self, terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type, usescore:str = 'q2'):
