@@ -18,6 +18,7 @@ If you'd prefer to create your own environment, here is a list of known dependen
 6. statsmodel
 7. scikit-learn
 8. openpyxl
+9. boruta_py
 
 # Usage
 The full linear modeling workflow can be run using the NAME_CHANGED.ipynb notebook. Input data should be stored in the InputData folder and formatted similarly to the example file NAME_CHANGED.xlsx with a row of x# identifiers, a row of parameter names, and the parameter values. Experimental outputs can be in the same or different sheet.
