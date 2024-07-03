@@ -348,10 +348,11 @@ def external_r2(y_test_measured,y_test_predicted,y_train):
     r2_validation = 1-SS_residual/SS_total
     return(r2_validation)
 
-def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterable, y_predictions_test:Iterable, loo_predictions:Iterable = [],
+def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterable, y_predictions_test:Iterable,
+                   loo_predictions:Iterable = [], y_validate:Iterable = [], y_predictions_validate:Iterable = [],
                    display_legend:bool = True, output_label:str = "Output",
                    plot_size:tuple = (5,5), manual_limits:tuple = (None,None),
-                   training_color:str = "black", test_color:str = "#BE0000"):
+                   training_color:str = "black", test_color:str = "#BE0000", validate_color:str = "#6CC24A"):
     '''
     Plots the measured vs. predicted values for the training and test sets, as well as the leave-one-out predictions if provided.
     
@@ -373,7 +374,7 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     
     # Set plot limits
     if manual_limits[0] is None:
-        all_values = list(chain(y_train, y_predictions_train, y_test, y_predictions_test, loo_predictions))
+        all_values = list(chain(y_train, y_predictions_train, y_test, y_predictions_test, loo_predictions, y_validate, y_predictions_validate))
         max_value = max(all_values)
         min_value = min(all_values)
         delta = 0.04 * (max_value - min_value)
@@ -388,6 +389,10 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
         plt.scatter(y_train, loo_predictions, label="LOO", color="black", marker=".", facecolor='none', s=200) # Plot the leave-one-out set
     plt.scatter(y_train, y_predictions_train, label="Training", color=training_color, marker=".", s=200) # Plot the training set
     plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set
+    if len(y_predictions_validate) > 0 and len(y_validate) == 0:
+        plt.scatter(y_predictions_validate, y_predictions_validate, label="Validation Predictions", color=validate_color, marker=".", s=200) # Plot the validation set without experimental results 
+    elif len(y_predictions_validate) > 0 and len(y_validate) > 0:
+        plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set with experimental results
 
     # Add a legend if requested
     if display_legend:
