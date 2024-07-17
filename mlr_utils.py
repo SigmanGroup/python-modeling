@@ -368,6 +368,13 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     :training_color: The color to use for the training set points
     :test_color: The color to use for the test set points
     '''
+    # Determine type of plot
+    if len(y_validate) > 0 and len(y_predictions_validate) > 0:
+        plot_type = "Validation"
+    elif len(y_validate) == 0 and len(y_predictions_validate) > 0:
+        plot_type = "Virtual Screening"
+    else:
+        plot_type = "Normal"
 
     # Set figure size
     plt.figure(figsize=plot_size)
@@ -388,10 +395,11 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     if loo_predictions:
         plt.scatter(y_train, loo_predictions, label="LOO", color="black", marker=".", facecolor='none', s=200) # Plot the leave-one-out set
     plt.scatter(y_train, y_predictions_train, label="Training", color=training_color, marker=".", s=200) # Plot the training set
-    plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set
-    if len(y_predictions_validate) > 0 and len(y_validate) == 0:
+    if len(y_test) > 0:
+        plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set
+    if plot_type == "Virtual Screening":
         plt.scatter(y_predictions_validate, y_predictions_validate, label="Validation Predictions", color=validate_color, marker=".", s=200) # Plot the validation set without experimental results 
-    elif len(y_predictions_validate) > 0 and len(y_validate) > 0:
+    elif plot_type == "Validation":
         plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set with experimental results
 
     # Add a legend if requested
@@ -411,3 +419,23 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     plt.gca().spines['top'].set_color('none')
 
     plt.show()
+
+    # Plot the prediction distribution for virtual screening
+    if plot_type == "Virtual Screening":
+        experimental_values = list(chain(y_train, y_test))
+        all_values = list(chain(y_train, y_test, y_predictions_validate))
+        plt.figure(figsize=plot_size)
+        hist, bins = np.histogram(all_values, bins="auto")
+        plt.hist(experimental_values, bins, alpha=0.5, label='Experimental Distribution',color="black")
+        plt.hist(y_predictions_validate, bins, alpha=0.5, label='Virtual Screen Distribution', color=validate_color)
+        plt.legend(loc='best')
+        plt.xlabel(output_label,fontsize=20)
+        plt.ylabel("N samples",fontsize=20)
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
+        plt.tight_layout()
+        plt.show()
+
+class StopExecution(Exception):
+    def _render_traceback_(self):
+        pass

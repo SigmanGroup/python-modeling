@@ -717,14 +717,14 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_
 
         print("Training Set mean: {:.3f}".format(np.mean(y_train)))
         print("Test Set mean: {:.3f}".format(np.mean(y_test)))
-        # print("Shape X_train: {}".format(X_train.shape))
-        # print("Shape X_test:  {}".format(X_test.shape))   
+
+        # Plot the distribution of the training and test sets
         plt.figure(figsize=(5, 5))
-        hist, bins = np.histogram(y,bins="auto")#"auto"
+        hist, bins = np.histogram(y,bins="auto")
         plt.hist(y_train, bins, alpha=0.5, label='y_train',color="black")
         plt.hist(y_test, bins, alpha=0.5, label='y_test')
         plt.legend(loc='best')
-        plt.xlabel("Output",fontsize=20)
+        plt.xlabel(response_label,fontsize=20)
         plt.ylabel("N samples",fontsize=20)
         plt.xticks(fontsize=15)
         plt.yticks(fontsize=15)
