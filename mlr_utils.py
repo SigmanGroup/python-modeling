@@ -351,7 +351,7 @@ def external_r2(y_test_measured,y_test_predicted,y_train):
 def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterable, y_predictions_test:Iterable,
                    loo_predictions:Iterable = [], y_validate:Iterable = [], y_predictions_validate:Iterable = [],
                    display_legend:bool = True, output_label:str = "Output",
-                   plot_size:tuple = (5,5), manual_limits:tuple = (None,None),
+                   plot_size:tuple = (5,5), manual_limits:tuple[tuple,tuple] = (None,None),
                    training_color:str = "black", test_color:str = "#BE0000", validate_color:str = "#6CC24A"):
     '''
     Plots the measured vs. predicted values for the training and test sets, as well as the leave-one-out predictions if provided.
@@ -364,7 +364,7 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     :display_legend: Whether or not to display a legend on the plot
     :output_label: The label to use for the output variable
     :plot_size: The size of the plot to display
-    :manual_limits: The limits to use for the x and y axes
+    :manual_limits: The limits to use for the x and y axes, each in their own tuple
     :training_color: The color to use for the training set points
     :test_color: The color to use for the test set points
     '''
@@ -388,8 +388,8 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
         plt.xlim([min_value - delta, max_value + delta])
         plt.ylim([min_value - delta, max_value + delta])
     else:
-        plt.xlim(manual_limits[0], manual_limits[1])
-        plt.ylim(manual_limits[0], manual_limits[1])
+        plt.xlim(manual_limits[0][0], manual_limits[0][1])
+        plt.ylim(manual_limits[1][0], manual_limits[1][1])
 
     # Plot the various data points
     if loo_predictions:
@@ -418,6 +418,7 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     plt.gca().spines['right'].set_color('none')
     plt.gca().spines['top'].set_color('none')
 
+    plt.tight_layout()
     plt.show()
 
     # Plot the prediction distribution for virtual screening
