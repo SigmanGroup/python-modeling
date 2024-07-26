@@ -170,10 +170,10 @@ def plot_hotspot(hs:Hotspot,
     else:
         print(f'Unable to plot {len(hs.thresholds)} thresholds')
 
-def plot_single_threshold(hs:Hotspot,
-                          validation_response_data:Optional[pd.DataFrame] = None, vs_parameters:Optional[pd.DataFrame] = None,
-                          subset:str = 'all', hide_training:bool = False,
-                          coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = 'Yield (%)'):
+def plot_single_threshold(hs: Hotspot,
+                          validation_response_data: Optional[pd.DataFrame] = None, vs_parameters: Optional[pd.DataFrame] = None,
+                          subset: str = 'all', hide_training: bool = False,
+                          coloring: str = 'scaled', gradient_color: str = 'Oranges', output_label: str = 'Yield (%)'):
     """
     Plot a single threshold in 2 dimensions
 
@@ -192,7 +192,7 @@ def plot_single_threshold(hs:Hotspot,
     plot_virtual_screening = validation_response_data is None and vs_parameters is not None 
 
     x_col = hs.thresholds[0].index
-    plt.figure(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))  # Create a figure and an axes
 
     # This section auto-scales the plot
     if plot_virtual_screening:
@@ -245,7 +245,7 @@ def plot_single_threshold(hs:Hotspot,
     # Plot the virtual screening set if only given parameters
     if(plot_virtual_screening):
         vs_x = vs_parameters.loc[:, x_col]
-        plt.scatter(vs_x, [0 for i in range(len(vs_x))], c='grey', edgecolor='black', alpha=0.5, linewidth=2, s=100, marker='x')
+        ax.scatter(vs_x, [0 for i in range(len(vs_x))], c='grey', edgecolor='black', alpha=0.5, linewidth=2, s=100, marker='x')
 
     # Plot the main dataset if not hiding it
     if not hide_training:
@@ -253,13 +253,13 @@ def plot_single_threshold(hs:Hotspot,
         y = hs.data_df.loc[points_to_plot, output_label]
         if plot_validation: alpha = 0.5
         else: alpha=1
-        plt.scatter(x, y, c = mapping_cl, cmap = gradient_color, edgecolor ='black', alpha=alpha, s = 100, marker = 'o')
+        ax.scatter(x, y, c = mapping_cl, cmap = gradient_color, edgecolor ='black', alpha=alpha, s = 100, marker = 'o')
 
     # Plot the validation data set if given parameters and response
     if(plot_validation):
         validation_x = vs_parameters.loc[validation_response_data.index, x_col]
         validation_y = validation_response_data.iloc[:, 0]
-        plt.scatter(validation_x, validation_y, c = validation_mapping_cl, cmap = gradient_color, edgecolor = 'black', linewidth=2, s = 100, marker = 's')
+        ax.scatter(validation_x, validation_y, c = validation_mapping_cl, cmap = gradient_color, edgecolor = 'black', linewidth=2, s = 100, marker = 's')
     
     # Set the gradient bar or binary legend
     if(coloring == 'scaled'):
@@ -267,8 +267,8 @@ def plot_single_threshold(hs:Hotspot,
         mappable = ScalarMappable(cmap=gradient_color, norm=norm)
         mappable.set_array([])
         
-        cbar = plt.colorbar(mappable, shrink=1)
-        cbar.set_label(output_label, rotation=90, size=18)
+        cbar = plt.colorbar(mappable, ax=ax, shrink=1)
+        cbar.set_label(output_label, rotation=90, size=25)
 
     elif(coloring == 'binary'):
         # Define the legend colors
@@ -293,24 +293,24 @@ def plot_single_threshold(hs:Hotspot,
         if plot_virtual_screening:
             legend_symbols.append(virtual_screen_symbol)
 
-        plt.legend(handles=legend_symbols, fontsize=15, loc='upper right', edgecolor='black')
+        ax.legend(handles=legend_symbols, fontsize=15, loc='upper right', edgecolor='black')
     
     # Draw the threshold line
-    plt.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
+    ax.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
     # Draw y_cut line
-    plt.axhline(y=hs.y_cut, color='r', linestyle='--')
+    ax.axhline(y=hs.y_cut, color='r', linestyle='--')
 
     # Axis setup
-    plt.xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}',fontsize=25)
-    plt.ylabel(output_label,fontsize=25)
-    plt.xticks(fontsize=18)
-    plt.xlim(x_min, x_max)
-    plt.locator_params(axis='x', nbins=5)
-    plt.yticks(fontsize=18)
-    plt.ylim(y_min, y_max)
-    plt.locator_params(axis='y', nbins=4)
+    ax.set_xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}', fontsize=25)
+    ax.set_ylabel(output_label, fontsize=25)
+    ax.tick_params(axis='x', labelsize=18)
+    ax.set_xlim(x_min, x_max)
+    ax.locator_params(axis='x', nbins=5)
+    ax.tick_params(axis='y', labelsize=18)
+    ax.set_ylim(y_min, y_max)
+    ax.locator_params(axis='y', nbins=4)
 
-    plt.title(f'{hs.thresholds[0].feature_name} Threshold', fontsize = 25)
+    ax.set_title(f'{hs.thresholds[0].feature_name} Threshold', fontsize=25)
     
     plt.show()
 
@@ -336,7 +336,7 @@ def plot_double_threshold(hs:Hotspot,
     plot_virtual_screening = validation_response_data is None and vs_parameters is not None
 
     x_col,y_col = hs.thresholds[0].index, hs.thresholds[1].index
-    plt.figure(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))
 
     # This section auto-scales the plot
     if plot_virtual_screening:
@@ -388,7 +388,7 @@ def plot_double_threshold(hs:Hotspot,
     if(plot_virtual_screening):
         vs_x = vs_parameters.loc[:, x_col]
         vs_y = vs_parameters.loc[:, y_col]
-        plt.scatter(vs_x, vs_y, c='grey', edgecolor='black', alpha=0.5, linewidth=2, s=100, marker='x')
+        ax.scatter(vs_x, vs_y, c='grey', edgecolor='black', alpha=0.5, linewidth=2, s=100, marker='x')
 
     # Plot the main dataset if not hiding it
     if not hide_training:
@@ -396,17 +396,17 @@ def plot_double_threshold(hs:Hotspot,
         y = hs.data_df.loc[points_to_plot,y_col]
         if plot_validation: alpha = 0.5
         else: alpha=1
-        plt.scatter(x, y, c=mapping_cl,cmap=gradient_color, edgecolor='black', alpha=alpha, s=100, marker='o')  
+        ax.scatter(x, y, c=mapping_cl,cmap=gradient_color, edgecolor='black', alpha=alpha, s=100, marker='o')  
 
     # Plot the validation data set if given parameters and response
     if(plot_validation):
         validation_x = vs_parameters.loc[validation_response_data.index, x_col]
         validation_y = vs_parameters.loc[validation_response_data.index, y_col]
-        plt.scatter(validation_x, validation_y, c=validation_mapping_cl, cmap=gradient_color, edgecolor='black', linewidth=2, s=100, marker='s')
+        ax.scatter(validation_x, validation_y, c=validation_mapping_cl, cmap=gradient_color, edgecolor='black', linewidth=2, s=100, marker='s')
 
     # Draw threshold lines
-    plt.axhline(y=hs.thresholds[1].cut_value, color='black', linestyle='--')
-    plt.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
+    ax.axhline(y=hs.thresholds[1].cut_value, color='black', linestyle='--')
+    ax.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
     
     # Set the gradient bar or binary legend
     if(coloring == 'scaled'):
@@ -414,8 +414,8 @@ def plot_double_threshold(hs:Hotspot,
         mappable = ScalarMappable(cmap=gradient_color, norm=norm)
         mappable.set_array([])
         
-        cbar = plt.colorbar(mappable, shrink=1)
-        cbar.set_label(output_label, rotation=90, size=18)
+        cbar = plt.colorbar(mappable, ax=ax, shrink=1)
+        cbar.set_label(output_label, rotation=90, size=25)
 
     elif(coloring == 'binary'):
         # Define the legend colors
@@ -440,20 +440,21 @@ def plot_double_threshold(hs:Hotspot,
         if plot_virtual_screening:
             legend_symbols.append(virtual_screen_symbol)
 
-        plt.legend(handles=legend_symbols, fontsize=15, loc='upper right', edgecolor='black')
+        ax.legend(handles=legend_symbols, fontsize=15, loc='upper right', edgecolor='black')
 
     # Axis setup
-    plt.xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}', fontsize = 15)
-    plt.ylabel(f'{hs.thresholds[1].feature_label} {hs.thresholds[1].feature_name}', fontsize = 15)
-    plt.xticks(fontsize = 18)
-    plt.xlim(x_min, x_max)
-    plt.locator_params(axis = 'x', nbins = 5)
-    plt.yticks(fontsize = 18)
-    plt.ylim(y_min, y_max)
-    plt.locator_params(axis = 'y', nbins = 4)
+    ax.set_xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}', fontsize=25)
+    ax.set_ylabel(f'{hs.thresholds[1].feature_label} {hs.thresholds[1].feature_name}', fontsize=25)
+    ax.tick_params(axis='x', labelsize=18)
+    ax.set_xlim(x_min, x_max)
+    ax.locator_params(axis='x', nbins=5)
+    ax.tick_params(axis='y', labelsize=18)
+    ax.set_ylim(y_min, y_max)
+    ax.locator_params(axis='y', nbins=4)
+
 
     # Print the title of the plot
-    plt.title(f'{hs.thresholds[0].feature_name} x {hs.thresholds[1].feature_name}', fontsize = 20)
+    ax.set_title(f'{hs.thresholds[0].feature_name} x {hs.thresholds[1].feature_name}', fontsize = 25)
 
     plt.show()
 
@@ -479,7 +480,9 @@ def plot_triple_threshold(hs:Hotspot,
     plot_virtual_screening = validation_response_data is None and vs_parameters is not None 
 
     x_col,y_col,z_col = hs.thresholds[0].index, hs.thresholds[1].index, hs.thresholds[2].index
-    
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(111, projection = '3d')
+
     # This section auto-scales the plot
     if plot_virtual_screening:
         x_values = list(chain(*[hs.data_df.loc[:, x_col], vs_parameters.loc[:, x_col]]))
@@ -511,9 +514,6 @@ def plot_triple_threshold(hs:Hotspot,
     y_max = y_max + abs(dy * 0.05)
     z_min = z_min - abs(dz * 0.05)
     z_max = z_max + abs(dz * 0.05)
-
-    fig = plt.figure(figsize=(10,10))
-    ax = fig.add_subplot(111, projection = '3d')
 
     # Set which points to plot based on the subset parameter
     if(subset == 'all'):
@@ -600,7 +600,7 @@ def plot_triple_threshold(hs:Hotspot,
         mappable = ScalarMappable(cmap=gradient_color, norm=norm)
         mappable.set_array([])
         
-        cbar = plt.colorbar(mappable, shrink=0.5)
+        cbar = plt.colorbar(mappable, ax=ax, shrink=0.5)
         cbar.set_label(output_label, rotation=90, size=18)
 
     elif(coloring == 'binary'):
@@ -758,3 +758,5 @@ def kennardstonealgorithm( X, k ):
         remainingsamplenumbers = np.delete( remainingsamplenumbers, maxdistancesamplenumber, 0)
 
     return(selectedsamplenumbers, remainingsamplenumbers)
+
+

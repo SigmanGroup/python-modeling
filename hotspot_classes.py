@@ -325,24 +325,27 @@ class Hotspot:
         threshold_evaluations = pd.DataFrame(bool_list, index=virtual_data_df.index, columns=self.threshold_indexes)
         return threshold_evaluations
     
-    def get_external_accuracy(self, virtual_data_df:pd.DataFrame, verbose:bool=False, low_is_good:bool=False) -> tuple[float, float, float]:
+    def get_external_accuracy(self, virtual_data_df:pd.DataFrame, response_label:str, verbose:bool=False, low_is_good:bool=False) -> tuple[float, float, float]:
         """
         Given a new parameters dataframe with experimental results,
         returns the accuracy, precision, and recall of the hotspot on that dataframe
         
-        :virtual_data_df: a dataframe with experimental response in the 'response' column and parameters in the other columns
+        :virtual_data_df: a dataframe with experimental output and parameters with xID labels
+        :response_label: the column label in virtual_data_df with the experimental results
+        :verbose: if True, prints the accuracy, precision, and recall in addition to returning them
+        :low_is_good: if True, the experimental results are considered good if they are below threshold cutoffs
         """
 
         tp,tn,fp,fn = 0,0,0,0 # True Positive, True Negative, False Positive, False Negative
 
         # Sort the ligands from virtual_data_df into the confusion matrix
         for ligand in virtual_data_df.index:
-            if (virtual_data_df.loc[ligand, 'response'] >= self.y_cut):
+            if (virtual_data_df.loc[ligand, response_label] >= self.y_cut):
                 if(all(self.__is_inside(ligand, virtual_data_df))):
                     tp = tp + 1
                 else:
                     fn = fn + 1
-            if (virtual_data_df.loc[ligand, 'response'] < self.y_cut):
+            if (virtual_data_df.loc[ligand, response_label] < self.y_cut):
                 if(all(self.__is_inside(ligand, virtual_data_df))):
                     fp = fp + 1
                 else:

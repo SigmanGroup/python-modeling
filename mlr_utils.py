@@ -351,7 +351,7 @@ def external_r2(y_test_measured,y_test_predicted,y_train):
 def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterable, y_predictions_test:Iterable,
                    loo_predictions:Iterable = [], y_validate:Iterable = [], y_predictions_validate:Iterable = [],
                    display_legend:bool = True, output_label:str = "Output",
-                   plot_size:tuple = (5,5), manual_limits:tuple[tuple,tuple] = (None,None),
+                   plot_size:tuple = (5,5), manual_limits:tuple[tuple,tuple] = (None,None), plot_xy:bool = False,
                    training_color:str = "black", test_color:str = "#BE0000", validate_color:str = "#6CC24A"):
     '''
     Plots the measured vs. predicted values for the training and test sets, as well as the leave-one-out predictions if provided.
@@ -365,8 +365,10 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     :output_label: The label to use for the output variable
     :plot_size: The size of the plot to display
     :manual_limits: The limits to use for the x and y axes, each in their own tuple
+    :plot_xy: Whether or not to plot the 1:1 line
     :training_color: The color to use for the training set points
     :test_color: The color to use for the test set points
+    :validate_color: The color to use for the validation set points
     '''
     # Determine type of plot
     if len(y_validate) > 0 and len(y_predictions_validate) > 0:
@@ -401,6 +403,10 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
         plt.scatter(y_predictions_validate, y_predictions_validate, label="Validation Predictions", color=validate_color, marker=".", s=200) # Plot the validation set without experimental results 
     elif plot_type == "Validation":
         plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set with experimental results
+
+    # Plot the 1:1 line if requested
+    if plot_xy:
+        plt.plot([min_value - delta, max_value + delta], [min_value - delta, max_value + delta], color='black', linewidth=1, linestyle='--')
 
     # Add a legend if requested
     if display_legend:
