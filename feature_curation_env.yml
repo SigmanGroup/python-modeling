@@ -10,3 +10,4 @@ dependencies:
   - xlrd=1.2.0
   - ipykernel=5.1.4
   - boruta_py=0.3
+  - openpyxl=3.0.3
