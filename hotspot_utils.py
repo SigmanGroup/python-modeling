@@ -19,7 +19,7 @@ from hotspot_classes import Threshold, Hotspot
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning)
 
-def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_method:str, x_labelname_dict:dict, features:list[str] = ['empty']) -> list[Threshold]:
+def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_method:str, features:list[str]) -> list[Threshold]:
     """
     Given the master dataframe and some parameters, return the best threshold in each feature.
 
@@ -30,12 +30,9 @@ def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_met
     :features: List of x# parameter names to get thresholds for.  Primarily used for manual hotspot selection.
     """
 
-    if(features==['empty']):
-        features = list(x_labelname_dict.keys())
-
     all_thresholds = []
-    for f_ind in features:
-        x = (data_df.loc[:,f_ind].values).reshape(-1, 1) # pulls the relevant parameter column and formats it in the propper array
+    for feature in features:
+        x = (data_df.loc[:,feature].values).reshape(-1, 1) # pulls the relevant parameter column and formats it in the propper array
         y = data_df.loc[:, 'y_class']
         dt = DecisionTreeClassifier(max_depth=1, class_weight=class_weight).fit(x, y)
 
@@ -50,10 +47,9 @@ def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_met
             operator = '>'
             
         temp_threshold = Threshold(
-            f_ind, 
             dt.tree_.threshold[0],
             operator, 
-            feature_name = x_labelname_dict[f_ind],
+            feature_name = feature,
             evaluation_method = evaluation_method
         )
 
@@ -78,7 +74,7 @@ def hs_next_thresholds_fast(hs:Hotspot, all_thresholds:list[Threshold]) -> list[
 
     return all_hotspots
 
-def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, x_labelname_dict:dict, features:list[str] = ['empty']) -> list[Hotspot]:
+def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, features:list[str]) -> list[Hotspot]:
     """
     Given the master dataframe and some parameters, return the best threshold in each feature.
 
@@ -89,13 +85,10 @@ def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, x_la
     :features: List of x# parameter names to get thresholds for.  Primarily used for manual hotspot selection.
     """
 
-    if(features==['empty']):
-        features = list(x_labelname_dict.keys())
-
     # Makes all possible hotspots by adding one threshold
     all_hotspots = []
-    for f_ind in features:
-        x = (data_df.loc[:,f_ind].values).reshape(-1, 1) # pulls the relevant parameter column and formats it in the propper array
+    for feature in features:
+        x = (data_df.loc[:,feature].values).reshape(-1, 1) # pulls the relevant parameter column and formats it in the propper array
         y = data_df.loc[:, 'y_class']
         dt = DecisionTreeClassifier(max_depth=1, class_weight=class_weight).fit(x, y)
 
@@ -110,10 +103,9 @@ def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, x_la
             operator = '>'
             
         temp_threshold = Threshold(
-            f_ind, 
             dt.tree_.threshold[0],
             operator, 
-            feature_name = x_labelname_dict[f_ind],
+            feature_name = feature,
             evaluation_method = hs.evaluation_method
         )
 
@@ -191,7 +183,7 @@ def plot_single_threshold(hs: Hotspot,
     plot_validation = validation_response_data is not None and vs_parameters is not None
     plot_virtual_screening = validation_response_data is None and vs_parameters is not None 
 
-    x_col = hs.thresholds[0].index
+    x_col = hs.thresholds[0].feature_name
     fig, ax = plt.subplots(figsize=(10, 8))  # Create a figure and an axes
 
     # This section auto-scales the plot
@@ -301,7 +293,7 @@ def plot_single_threshold(hs: Hotspot,
     ax.axhline(y=hs.y_cut, color='r', linestyle='--')
 
     # Axis setup
-    ax.set_xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}', fontsize=25)
+    ax.set_xlabel(hs.thresholds[0].feature_name, fontsize=25)
     ax.set_ylabel(output_label, fontsize=25)
     ax.tick_params(axis='x', labelsize=18)
     ax.set_xlim(x_min, x_max)
@@ -335,7 +327,7 @@ def plot_double_threshold(hs:Hotspot,
     plot_validation = validation_response_data is not None and vs_parameters is not None
     plot_virtual_screening = validation_response_data is None and vs_parameters is not None
 
-    x_col,y_col = hs.thresholds[0].index, hs.thresholds[1].index
+    x_col,y_col = hs.thresholds[0].feature_name, hs.thresholds[1].feature_name
     fig, ax = plt.subplots(figsize=(10, 8))
 
     # This section auto-scales the plot
@@ -443,8 +435,8 @@ def plot_double_threshold(hs:Hotspot,
         ax.legend(handles=legend_symbols, fontsize=15, loc='upper right', edgecolor='black')
 
     # Axis setup
-    ax.set_xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}', fontsize=25)
-    ax.set_ylabel(f'{hs.thresholds[1].feature_label} {hs.thresholds[1].feature_name}', fontsize=25)
+    ax.set_xlabel(hs.thresholds[0].feature_name, fontsize=25)
+    ax.set_ylabel(hs.thresholds[1].feature_name, fontsize=25)
     ax.tick_params(axis='x', labelsize=18)
     ax.set_xlim(x_min, x_max)
     ax.locator_params(axis='x', nbins=5)
@@ -479,7 +471,7 @@ def plot_triple_threshold(hs:Hotspot,
     plot_validation = validation_response_data is not None and vs_parameters is not None
     plot_virtual_screening = validation_response_data is None and vs_parameters is not None 
 
-    x_col,y_col,z_col = hs.thresholds[0].index, hs.thresholds[1].index, hs.thresholds[2].index
+    x_col,y_col,z_col = hs.thresholds[0].feature_name, hs.thresholds[1].feature_name, hs.thresholds[2].feature_name
     fig = plt.figure(figsize=(10,10))
     ax = fig.add_subplot(111, projection = '3d')
 
@@ -585,9 +577,9 @@ def plot_triple_threshold(hs:Hotspot,
     plt.yticks(fontsize = 10)
 
     # Set axes labels
-    ax.set_xlabel(f'{hs.thresholds[0].feature_label} {hs.thresholds[0].feature_name}',fontsize=12.5)
-    ax.set_ylabel(f'{hs.thresholds[1].feature_label} {hs.thresholds[1].feature_name}',fontsize=12.5)
-    ax.set_zlabel(f'{hs.thresholds[2].feature_label} {hs.thresholds[2].feature_name}',fontsize=12.5)
+    ax.set_xlabel(hs.thresholds[0].feature_name,fontsize=12.5)
+    ax.set_ylabel(hs.thresholds[1].feature_name,fontsize=12.5)
+    ax.set_zlabel(hs.thresholds[2].feature_name,fontsize=12.5)
     plt.locator_params(axis='y', nbins=8)
 
     ax.set_xlim(x_min, x_max)
@@ -630,14 +622,14 @@ def plot_triple_threshold(hs:Hotspot,
 
     plt.show()
 
-def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_labels:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[str], list[str]]:
+def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, feature_names:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[str], list[str]]:
     """
     Given the main dataframe and some parameters, return lists of y index values for a training and test set
 
     :data_df: The master dataframe with x# column names and the first two columns as 'response' and 'y_class'
     :split: 'random', 'ks', 'y_equidistant', 'define', 'none'; Type of split to use
     :test_ratio: Ratio of the data to use as a test set
-    :x_labels: List of xID# parameter labels corresponding to the parameter column names in the dataframe
+    :feature_names: List of parameter labels corresponding to the parameter column names in the dataframe
     :response_label: The name of the response column in the dataframe
     :randomstate: Seed to use when chosing the random split
     :defined_training_set: Y indexes corresponding to a manual training set. Only used if split == 'define'
@@ -651,7 +643,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_
     else:
         data_df = temp_data_df.loc[subset, :].copy()
 
-    x = data_df[x_labels].to_numpy() # Array of just feature values (X_sel)
+    x = data_df[feature_names].to_numpy() # Array of just feature values (X_sel)
     y = data_df[response_label].to_numpy() # Array of response values (y_sel)
     test_size = int(len(data_df.index)*test_ratio) # Number of points in the test set
     train_size = len(data_df.index) - test_size
@@ -710,11 +702,11 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, x_
 
         print(f"Training Set: {training_set}")
         print(f"Test Set: {test_set}")
-        if (len(training_set) + len(test_set) == len(data_df.index)):
-            print('All indices accounted for!')
-        else:
+        if (len(training_set) + len(test_set) != len(data_df.index)):
             print('Missing indices!')
 
+        print("Training Set size: {}".format(len(training_set)))
+        print("Test Set size: {}".format(len(test_set)))
         print("Training Set mean: {:.3f}".format(np.mean(y_train)))
         print("Test Set mean: {:.3f}".format(np.mean(y_test)))
 

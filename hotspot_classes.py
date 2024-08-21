@@ -4,28 +4,27 @@ import copy
 import pandas as pd
 
 class Threshold:
-    def __init__(self, index: str, cut_value: float, operator: str, feature_name:str, evaluation_method:str):
+    def __init__(self, cut_value: float, operator: str, feature_name:str, evaluation_method:str):
         """
         This is basically a container to keep a handful of variables in one place for easy use.
         Each Threshold object within a Hotspot represents a single cutoff in the dataset.
 
-        :index: The numerical index in the old array system corresponding to the parameter for this threshold - Replaced by x# string
         :cut_value: The parameter value where the threshold divides the dataset
         :operator: a string containing < or > to indicate which side of the threshold is the active side
+        :feature_name: the name of the parameter in the dataset
         :evaluation_method: selected accuracy metric
         """
 
-        self.index = index
         self.cut_value = cut_value
         self.operator = operator
         self.evaluation_method = evaluation_method
-        self.feature_label = index
         self.feature_name = feature_name
 
+        # Set to 0 by default, but updated when added to a Hotspot
         self.added_accuracy = 0
     
     def __str__(self):
-        return f'{self.feature_label} {self.feature_name} {self.operator} {self.cut_value:.3f} with Added {self.evaluation_method} of {self.added_accuracy:.3f}'
+        return f'{self.feature_name} {self.operator} {self.cut_value:.3f} with Added {self.evaluation_method} of {self.added_accuracy:.3f}'
     
 
 class Hotspot:
@@ -62,11 +61,7 @@ class Hotspot:
         for thresh in thresholds:
             self.add_threshold(thresh)
     
-        self.threshold_indexes = self.__get_threshold_indexes()
-        # self.threshold_indexes.sort()
-
-        # Removed because I don't want to deal with this right now
-        # self.correlated_features = self.__set_correlated_features()
+        self.threshold_features = self.__get_threshold_features()
             
     def __str__(self):
         """Calling as a string returns some accuracy metrics and a print out of each threshold"""
@@ -87,7 +82,7 @@ class Hotspot:
     
     def __eq__(self, other: 'Hotspot'):
         """If two hotspots use the same threshold parameters and have the same accuracy, they are considered equal"""
-        output = self.threshold_indexes == other.threshold_indexes
+        output = self.threshold_features == other.threshold_features
         output = output and (self.accuracy == other.accuracy)
         return output
     
@@ -110,10 +105,6 @@ class Hotspot:
 
         :threshold: The threshold object to be added
         """
-        # if(len(self.thresholds) == 0):
-        #     temp_accuracy = 0
-        # else:
-        #     temp_accuracy = self.accuracy
         temp_accuracy = self.accuracy
         
         self.thresholds.append(threshold)
@@ -122,18 +113,14 @@ class Hotspot:
         added_accuracy = self.accuracy - temp_accuracy
         self.thresholds[-1].added_accuracy = added_accuracy
         
-        self.threshold_indexes = self.__get_threshold_indexes()
-        # self.threshold_indexes.sort()
-        #self.correlated_features = self.__set_correlated_features()
+        self.threshold_features = self.__get_threshold_features()
        
-    # It might be easier to just call this function instead of storing the result and calling that
-    # As it's currently written, it would be more accurate to call this __get_threshold_indexes
-    def __get_threshold_indexes(self) -> list[str]:
-        """Returns the list of x# parameter labels for all thresholds in the hotspot"""
-        indexes = []
+    def __get_threshold_features(self) -> list[str]:
+        """Returns the list of parameter names for all thresholds in the hotspot"""
+        features = []
         for thresh in self.thresholds:
-            indexes.append(thresh.index)
-        return indexes
+            features.append(thresh.feature_name)
+        return features
 
     def __evaluate_threshold(self, value: float, operator: str, cutoff: float) -> bool:
         """Returns the truth of [value operator (> or <) cutoff]
@@ -170,7 +157,7 @@ class Hotspot:
 
         bool_list = []
         for thresh in self.thresholds:
-            parameter_value = x_space.loc[y_index, thresh.index]
+            parameter_value = x_space.loc[y_index, thresh.feature_name]
             bool_list.append(self.__evaluate_threshold(parameter_value, thresh.operator, thresh.cut_value))
         return bool_list
 
@@ -322,7 +309,7 @@ class Hotspot:
         :virtual_data_df: an expanded dataframe with rows to be sorted in or out of the hotspot
         """
         bool_list = [self.__is_inside(i, virtual_data_df) for i in virtual_data_df.index]
-        threshold_evaluations = pd.DataFrame(bool_list, index=virtual_data_df.index, columns=self.threshold_indexes)
+        threshold_evaluations = pd.DataFrame(bool_list, index=virtual_data_df.index, columns=self.threshold_features)
         return threshold_evaluations
     
     def get_external_accuracy(self, virtual_data_df:pd.DataFrame, response_label:str, verbose:bool=False, low_is_good:bool=False) -> tuple[float, float, float]:

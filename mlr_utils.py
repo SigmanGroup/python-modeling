@@ -100,7 +100,7 @@ def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:t
     
     return(terms,model,score,response)
 
-def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()) -> tuple(float, list):
+def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()) -> tuple[float, list]:
     """
     Calculates the q^2 score for a given data set.
     Returns the score and the predictions.
@@ -442,6 +442,25 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
         plt.yticks(fontsize=15)
         plt.tight_layout()
         plt.show()
+
+def process_features(features:list, data_df:pd.DataFrame):
+    '''Converts the features input into a list of column names if given a list of integer possitions.
+    Raises an error if the input is not a list of integers or strings.
+    
+    :features: List of integers or strings representing the features to use
+    :data_df: The dataframe containing the data to be modeled
+    '''
+
+    if type(features[0]) == str:
+        for feature in features:
+            if feature not in data_df.columns:
+                raise ValueError(f'Feature {feature} not found in the data.')
+    elif type(features[0]) == int:
+        features = data_df.columns[features].tolist()
+    else:
+        raise ValueError('Invalid feature input. Please use a list of integers or strings.')
+    
+    return features
 
 class StopExecution(Exception):
     def _render_traceback_(self):
