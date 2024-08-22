@@ -7,6 +7,7 @@ from itertools import chain
 import numpy as np
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
@@ -622,12 +623,13 @@ def plot_triple_threshold(hs:Hotspot,
 
     plt.show()
 
-def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, feature_names:list[str], response_label:str, randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], verbose:bool = True) -> tuple[list[str], list[str]]:
+def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, feature_names:list[str], response_label:str, 
+                      randomstate:int = 0, defined_training_set:list[int] = [], defined_test_set:list[int] = [], subset:list[int] = [], stratified_quantiles:int = 10, verbose:bool = True) -> tuple[list[str], list[str]]:
     """
     Given the main dataframe and some parameters, return lists of y index values for a training and test set
 
     :data_df: The master dataframe with x# column names and the first two columns as 'response' and 'y_class'
-    :split: 'random', 'ks', 'y_equidistant', 'define', 'none'; Type of split to use
+    :split: 'random', 'ks', 'y_equidistant', 'stratified', 'define', 'none'; Type of split to use
     :test_ratio: Ratio of the data to use as a test set
     :feature_names: List of parameter labels corresponding to the parameter column names in the dataframe
     :response_label: The name of the response column in the dataframe
@@ -649,17 +651,24 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, fe
     train_size = len(data_df.index) - test_size
 
     if split == "random":
+        # Purely random split
         random.seed(a = randomstate)
         test_set = random.sample(list(data_df.index), k = test_size)
         training_set = [x for x in data_df.index if x not in test_set]
 
+    elif split == "stratified":
+        # Stratified split based on the response variable, gives a training and test set distributed over {stratified_quantiles} bins
+        y_binned = pd.qcut(y, q=stratified_quantiles, labels=False, duplicates='drop')
+        training_set, test_set = train_test_split(data_df.index.to_list(), test_size=test_size, stratify=y_binned, random_state=randomstate)
+
     elif split == "ks":
-        # There may be some issues with test_set_index being formatted as an array and training_set_index being a list
+        # Kennard-Stone algorithm split, giving a training and test set distributed over parameter space
         training_set_index, test_set_index = kennardstonealgorithm(x, train_size)
         training_set = list(data_df.index[training_set_index])
         test_set = list(data_df.index[test_set_index])
 
     elif split == "y_equidistant":
+        # Splitting that maximizes the spread of y values in the test set
         no_extrapolation = True
         # Only difference I can see between extrapolation and no_extrapolation is that no_e cuts off the highest and lowest y values first
         
@@ -686,10 +695,12 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, fe
         test_set = list(data_df.index[VS_])
 
     elif split == 'define':
+        # Manually defined training and test sets
         training_set = defined_training_set
         test_set = defined_test_set
 
     elif split == "none":
+        # No split, just use the entire dataset as the training set
         training_set = data_df.index.to_list()
         test_set = []
 
