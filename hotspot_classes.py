@@ -283,7 +283,7 @@ class Hotspot:
         :threshold: the threshold you want to compare to
         """
         # Create a list[bool] for whether or not each index is within the threshold
-        column_of_interest = self.data_df.loc[:,threshold.index]
+        column_of_interest = self.data_df.loc[:,threshold.feature_name]
         if(threshold.operator == '<'):
             mask = column_of_interest < threshold.cut_value
         elif(threshold.operator == '>'):
