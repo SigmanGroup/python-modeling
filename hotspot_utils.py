@@ -623,25 +623,30 @@ def plot_triple_threshold(hs:Hotspot,
 
     plt.show()
 
-def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, feature_names:list[str], response_label:str, use_validation=False,
+def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:float, test_ratio:float, feature_names:list[str], response_label:str, use_test=False,
                       randomstate:int = 0, subset:list[int] = [], stratified_quantiles:int = 10, verbose:bool = True,
-                      defined_training_set:list=[], defined_test_set:list=[], defined_validation_set:list=[]) -> tuple[list[str], list[str]]:
+                      defined_training_set:list=[], defined_validation_set:list=[], defined_test_set:list=[]) -> tuple[list[str], list[str], list[str]]:
     """
-    Given the main dataframe and some parameters, return lists of y index values for a training and test set
+    Given the main dataframe and some parameters, return lists of y index values for training, validation, and potentially test sets.
+    Training ratio is 1 - validation_ratio - test_ratio.
+    Function updated with correct train/validation/test labeling
 
     :data_df: The master dataframe with x# column names and the first two columns as 'response' and 'y_class'
     :split: 'random', 'ks', 'y_equidistant', 'stratified', 'define', 'none'; Type of split to use
+    :validation_ratio: Ratio of the data to use as a validation set
     :test_ratio: Ratio of the data to use as a test set
     :feature_names: List of parameter labels corresponding to the parameter column names in the dataframe
     :response_label: The name of the response column in the dataframe
-    :use_validation: Whether to use a validation set in addition to the training and test sets
+    :use_test: Whether to return a test set in addition to the training and validation sets
     :randomstate: Seed to use when chosing the random split
     :defined_training_set: Y indexes corresponding to a manual training set. Only used if split == 'define'
+    :defined_validation_set: Y indexes corresponding to a manual validation set. Only used if split == 'define'
     :defined_test_set: Y indexes corresponding to a manual test set. Only used if split == 'define'
     :subset: The subset of y indexes to use for another split method, originally used for MLR after a classification algorithm
     :verbose: Whether to print the extended report
     """
     
+    # Trim the data_df to only the subset if given
     if (subset == []):
         data_df = temp_data_df.copy()
     else:
@@ -649,45 +654,51 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, fe
 
     x = data_df[feature_names].to_numpy() # Array of just feature values (X_sel)
     y = data_df[response_label].to_numpy() # Array of response values (y_sel)
-    test_size = int(len(data_df.index)*test_ratio) # Number of points in the test set
-    train_size = len(data_df.index) - test_size
-    validation_set = [] # Set empty by default
+    
+    # Calculate the sizes of the training, validation, and test sets
+    validation_size = int(len(data_df.index)*validation_ratio) # Number of points in the validation set
+    test_size = 0
+    if use_test:
+        test_size = int(len(data_df.index)*test_ratio) # Number of points in the test set
+
+    train_size = len(data_df.index) - validation_size - test_size
+    test_set = []
 
     if split == "random":
         # Purely random split
         random.seed(a = randomstate)
-        test_set = random.sample(list(data_df.index), k = test_size)
-        training_set = [x for x in data_df.index if x not in test_set]
-        if use_validation:
-            validation_set = random.sample(test_set, int(len(test_set)/2))
-            test_set = [x for x in test_set if x not in validation_set]
+        validation_set = random.sample(list(data_df.index), k = validation_size)
+        if use_test:
+            test_set = random.sample([x for x in data_df.index if x not in validation_set], k = test_size)
+        training_set = [x for x in data_df.index if x not in test_set and x not in validation_set]
 
     elif split == "stratified":
-        # Stratified split based on the response variable, gives a training and test set distributed over {stratified_quantiles} bins
+        # Stratified split based on the response variable, gives sets distributed over {stratified_quantiles} bins
         y_binned = pd.qcut(y, q=stratified_quantiles, labels=False, duplicates='drop')
-        training_set, test_set = train_test_split(range(len(data_df.index)), test_size=test_size, stratify=y_binned, random_state=randomstate)
-        if use_validation:
-            validation_set, test_set = train_test_split(test_set, test_size=int(len(test_set)/2), stratify=y_binned[test_set], random_state=randomstate)
+        training_set, validation_set = train_test_split(range(len(data_df.index)), test_size=validation_size + test_size, stratify=y_binned, random_state=randomstate)
+
+        if use_test:
+            validation_set, test_set = train_test_split(validation_set, test_size=test_size, stratify=y_binned[validation_set], random_state=randomstate)
 
         training_set = list(data_df.index[training_set])
-        test_set = list(data_df.index[test_set])
-        if use_validation:
-            validation_set = list(data_df.index[validation_set])
+        validation_set = list(data_df.index[validation_set])
+        if use_test:
+            test_set = list(data_df.index[test_set])
 
     elif split == "ks":
-        # Kennard-Stone algorithm split, giving a training and test set distributed over parameter space
-        training_set_index, test_set_index = kennardstonealgorithm(x, train_size)
+        # Kennard-Stone algorithm split
+        validation_set_index, training_set_index = kennardstonealgorithm(x, validation_size + test_size, randomstate)
 
-        if use_validation:
-            test_set_temp_index, validation_set_temp_index = kennardstonealgorithm(x[test_set_index], int(len(test_set_index)/2))
-            validation_set_index = [test_set_index[i] for i in validation_set_temp_index]
-            test_set_index = [test_set_index[i] for i in test_set_temp_index]
-            # test_set_index = test_set_index[test_set_temp_index]
-            # validation_set_index = test_set_index[validation_set_temp_index]
-            validation_set = list(data_df.index[validation_set_index])   
+        if use_test:
+            validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(x[validation_set_index], validation_size, randomstate)
+
+            test_set_index = [validation_set_index[i] for i in test_set_temp_index]
+            validation_set_index = [validation_set_index[i] for i in validation_set_temp_index]
+
+            test_set = list(data_df.index[test_set_index])   
 
         training_set = list(data_df.index[training_set_index])
-        test_set = list(data_df.index[test_set_index])
+        validation_set = list(data_df.index[validation_set_index])
 
     elif split == "y_equidistant":
         # Splitting that maximizes the spread of y values in the test set
@@ -703,34 +714,36 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, fe
 
             # Run the KS algorithm on the internal y values
             y_internal_formatted = y_internal.reshape(np.shape(y_internal)[0], 1)
-            test_set_index, training_set_index = kennardstonealgorithm(y_internal_formatted, test_size)
-            if use_validation:
-                test_set_temp_index, validation_set_temp_index = kennardstonealgorithm(y_internal_formatted[test_set_index], int(len(test_set_index)/2))
+            # training_set_index, validation_set_index = kennardstonealgorithm(y_internal_formatted, train_size, randomstate)
+            validation_set_index, training_set_index = kennardstonealgorithm(y_internal_formatted, test_size+validation_size, randomstate)
+
+            if use_test:
+                validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(y_internal_formatted[validation_set_index], validation_size, randomstate)
             
             # Convert indices relative to y_internal
-            if use_validation:
-                validation_set_index = [test_set_index[i] for i in validation_set_temp_index]
-                test_set_index = [test_set_index[i] for i in test_set_temp_index]
+            if use_test:
+                test_set_index = [validation_set_index[i] for i in test_set_temp_index]
+                validation_set_index = [validation_set_index[i] for i in validation_set_temp_index]
 
             # Convert indices relative to y
             training_set_index = sorted([y_internal_indices[i] for i in list(training_set_index)] + y_extrema_indices)
-            test_set_index = sorted([y_internal_indices[i] for i in test_set_index])
-            if use_validation:
-                validation_set_index = sorted([y_internal_indices[i] for i in validation_set_index])
+            validation_set_index = sorted([y_internal_indices[i] for i in validation_set_index])
+            if use_test:
+                test_set_index = sorted([y_internal_indices[i] for i in test_set_index])
 
         else:
             y_formatted = y.reshape(np.shape(y)[0], 1)
-            test_set_index,training_set_index = kennardstonealgorithm(y_formatted, test_size)
-            if use_validation:
-                test_set_temp_index, validation_set_temp_index = kennardstonealgorithm(y_formatted[test_set_index], int(len(test_set_index)/2))
-                validation_set_index = [test_set_index[i] for i in validation_set_temp_index]
-                test_set_index = [test_set_index[i] for i in test_set_temp_index]
+            training_set_index, validation_set_index = kennardstonealgorithm(y_formatted, train_size, randomstate)
+            if use_test:
+                validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(y_formatted[validation_set_index], validation_size, randomstate)
+                test_set_index = [validation_set_index[i] for i in test_set_temp_index]
+                validation_set_index = [validation_set_index[i] for i in validation_set_temp_index]
 
         # Convert indices to row names
         training_set = list(data_df.index[training_set_index])
-        test_set = list(data_df.index[test_set_index])
-        if use_validation:
-            validation_set = list(data_df.index[validation_set_index])
+        validation_set = list(data_df.index[validation_set_index])
+        if use_test:
+            test_set = list(data_df.index[test_set_index])           
 
     elif split == 'define':
         # Manually defined training and test sets
@@ -749,33 +762,33 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, fe
     
     if(verbose):
         y_train = data_df.loc[training_set, response_label]
-        y_test = data_df.loc[test_set, response_label]
         y_validate = data_df.loc[validation_set, response_label]
+        y_test = data_df.loc[test_set, response_label]
 
         print(f"Training Set: {training_set}")
         print(f'Validation Set: {validation_set}')
-        print(f"Test Set: {test_set}")
+        if use_test: print(f"Test Set: {test_set}")
         if set(training_set).union(set(test_set)).union(set(validation_set)) != set(data_df.index):
             print('Missing indices!')
 
         print("\nTraining Set size: {}".format(len(training_set)))
         print('Validation Set size: {}'.format(len(validation_set)))
-        print("Test Set size: {}".format(len(test_set)))
+        if use_test: print("Test Set size: {}".format(len(test_set)))
         print("\nTraining Set mean: {:.3f}".format(np.mean(y_train)))
         print("Validation Set mean: {:.3f}".format(np.mean(y_validate)))
-        print("Test Set mean: {:.3f}".format(np.mean(y_test)))
+        if use_test: print("Test Set mean: {:.3f}".format(np.mean(y_test)))
 
-        # Plot the distribution of the training and test sets
+        # Plot the distribution of the sets
         plt.figure(figsize=(5, 5))
         hist, bins = np.histogram(y,bins="auto")
 
-        hist_data = [y_train, y_validate, y_test] if use_validation else [y_train, y_test]
-        hist_labels = ['y_train', 'y_validate', 'y_test'] if use_validation else ['y_train', 'y_test']
-        hist_colors = ['black', 'red', 'blue'] if use_validation else ['black', 'blue']
+        hist_data = [y_train, y_validate, y_test] if use_test else [y_train, y_validate]
+        hist_labels = ['y_train', 'y_validate', 'y_test'] if use_test else ['y_train', 'y_validate']
+        hist_colors = ['black', 'blue', 'red'] if use_test else ['black', 'blue']
         plt.hist(hist_data, bins, alpha=0.5, stacked=True, label=hist_labels, color=hist_colors)
 
         # plt.hist(y_train, bins, stacked=True, alpha=0.5, label='y_train',color="black")
-        # if use_validation: plt.hist(y_validate, bins, stacked=True, alpha=0.5, label='y_validate',color="red")
+        # if use_test: plt.hist(y_validate, bins, stacked=True, alpha=0.5, label='y_validate',color="red")
         # plt.hist(y_test, bins, stacked=True, alpha=0.5, label='y_test')
 
         plt.legend(loc='best')
@@ -788,18 +801,26 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, test_ratio:float, fe
 
     return training_set, validation_set, test_set
 
-# Still need to clean this one up
-def kennardstonealgorithm( X, k ):
+def kennardstonealgorithm(X:np.ndarray, k:int, randomseed:int = 0) -> tuple[list[int], list[int]]:
     X = np.array( X )
     originalX = X
+    np.random.seed(randomseed)
+
+    # Find the average value vector of the dataset and calculate the distance of each sample to the average value
     distancetoaverage = ( (X - np.tile(X.mean(axis=0), (X.shape[0], 1) ) )**2 ).sum(axis=1)
+
+    # Find the sample with the maximum distance to the average value
     maxdistancesamplenumber = np.where( distancetoaverage == np.max(distancetoaverage) )
-    maxdistancesamplenumber = maxdistancesamplenumber[0][0]
+    # maxdistancesamplenumber = maxdistancesamplenumber[0][0] # This line selects the first occurance of the maximum distance with the second index
+    maxdistancesamplenumber = np.random.choice(maxdistancesamplenumber[0]) # This line randomly selects one of the maximum distance samples
     selectedsamplenumbers = list()
     selectedsamplenumbers.append(maxdistancesamplenumber)
+
+    # Remove the sample with the maximum distance to the average value from the dataset
     remainingsamplenumbers = np.arange( 0, X.shape[0], 1)
     X = np.delete( X, selectedsamplenumbers, 0)
     remainingsamplenumbers = np.delete( remainingsamplenumbers, selectedsamplenumbers, 0)
+
     for iteration in range(1, k):
         selectedsamples = originalX[selectedsamplenumbers,:]
         mindistancetoselectedsamples = list()
@@ -807,11 +828,11 @@ def kennardstonealgorithm( X, k ):
             distancetoselectedsamples = ( (selectedsamples - np.tile(X[mindistancecalculationnumber,:], (selectedsamples.shape[0], 1)) )**2 ).sum(axis=1)
             mindistancetoselectedsamples.append( np.min(distancetoselectedsamples) )
         maxdistancesamplenumber = np.where( mindistancetoselectedsamples == np.max(mindistancetoselectedsamples) )
-        maxdistancesamplenumber = maxdistancesamplenumber[0][0]
+        # maxdistancesamplenumber = maxdistancesamplenumber[0][0] # This line selects the first occurance of the maximum distance with the second index
+        maxdistancesamplenumber = np.random.choice(maxdistancesamplenumber[0]) # This line randomly selects one of the maximum distance samples
         selectedsamplenumbers.append(remainingsamplenumbers[maxdistancesamplenumber])
         X = np.delete( X, maxdistancesamplenumber, 0)
         remainingsamplenumbers = np.delete( remainingsamplenumbers, maxdistancesamplenumber, 0).tolist()
 
     return(selectedsamplenumbers, remainingsamplenumbers)
-
 
