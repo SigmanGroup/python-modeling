@@ -402,7 +402,7 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
     if len(y_validate) > 0:
         plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set
     if plot_type == "Virtual Screening":
-        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=validate_color, marker=".", s=200) # Plot the test set without experimental results 
+        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=test_color, marker=".", s=200) # Plot the test set without experimental results 
     elif plot_type == "Test":
         plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set with experimental results
 
@@ -436,7 +436,7 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
         plt.figure(figsize=plot_size)
         hist, bins = np.histogram(all_values, bins="auto")
         plt.hist(experimental_values, bins, alpha=0.5, label='Experimental Distribution',color="black")
-        plt.hist(y_predictions_validate, bins, alpha=0.5, label='Virtual Screen Distribution', color=validate_color)
+        plt.hist(y_predictions_test, bins, alpha=0.5, label='Virtual Screen Distribution', color=test_color)
         plt.legend(loc='best')
         plt.xlabel(output_label,fontsize=20)
         plt.ylabel("N samples",fontsize=20)
