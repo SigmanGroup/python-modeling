@@ -28,7 +28,7 @@ class Threshold:
     
 
 class Hotspot:
-    def __init__(self, data_df: pd.DataFrame,  thresholds: list[Threshold], y_cut:float,  ts: list[int] = [], vs: list[int] = [], evaluation_method: str = 'weighted_accuracy', class_weight: dict = {1:10, 0:1}):
+    def __init__(self, data_df: pd.DataFrame,  thresholds: list[Threshold], y_cut:float,  ts: list = [], vs: list = [], evaluation_method: str = 'weighted_accuracy', class_weight: dict = {1:10, 0:1}):
         """
         This is where most of the actual computations happen
         An object to hold a multiple thresholds and some methods to work with them
