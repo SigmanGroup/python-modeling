@@ -28,7 +28,7 @@ class Threshold:
     
 
 class Hotspot:
-    def __init__(self, data_df: pd.DataFrame,  thresholds: list[Threshold], y_cut:float,  ts: list[int] = [], vs: list[int] = [], evaluation_method: str = 'weighted_accuracy', class_weight: dict = {1:10, 0:1}):
+    def __init__(self, data_df: pd.DataFrame,  thresholds: list[Threshold], y_cut:float,  training_set: list = [], validation_set: list = [], evaluation_method: str = 'weighted_accuracy', class_weight: dict = {1:10, 0:1}):
         """
         This is where most of the actual computations happen
         An object to hold a multiple thresholds and some methods to work with them
@@ -36,8 +36,8 @@ class Hotspot:
         :data_df: the main dataframe containing parameters and responses
         :thresholds: a list of Thresholds that make up the Hotspot
         :y_cut: the cutoff value for the y_class column in data_df
-        :ts: data_df index values for the training set
-        :vs: data_df index values for the test set
+        :training_set: data_df index values for the training set
+        :validation_set: data_df index values for the validation set
         :evaluation_method: the metric used for comparing Hotspot quality
         :class_weight: dictionary linking classes [0, 1] to relative weights ([10, 1] by default)
         """
@@ -47,12 +47,11 @@ class Hotspot:
         self.class_weight = class_weight
         self.y_cut = y_cut
         
-        # set up the training and test set indices from the old array system
-        # this either needs to be removed or remade
-        if(ts == []):
-            ts = data_df.index.tolist()
-        self.training_set = ts
-        self.test_set = vs
+        # set up the training and validation set indices 
+        if(training_set == []):
+            training_set = data_df.index.tolist()
+        self.training_set = training_set
+        self.validation_set = validation_set
 
         # This reads in and stores any thresholds passed then sets some variables associated with them
         self.thresholds: list[Threshold] = []
@@ -66,7 +65,7 @@ class Hotspot:
     def __str__(self):
         """Calling as a string returns some accuracy metrics and a print out of each threshold"""
 
-        # Set initial_true_accuracy to the ratio of 1 to 0 in the dataset
+        # Set initial_true_accuracy to the ratio of 1s to 0s in the dataset
         initial_true_accuracy = self.data_df['y_class'].sum() / len(self.data_df)
 
         output = f'Total {self.evaluation_method} with {len(self.thresholds)} thresholds: {self.accuracy:.3f}\n'
@@ -109,7 +108,7 @@ class Hotspot:
         
         self.thresholds.append(threshold)
         self.__set_accuracy()
-        self.__set_train_test_accuracy()
+        self.__set_train_validation_accuracy()
         added_accuracy = self.accuracy - temp_accuracy
         self.thresholds[-1].added_accuracy = added_accuracy
         
@@ -213,8 +212,8 @@ class Hotspot:
                              'precision':float(precision), 'recall':float(recall)}
         self.accuracy = self.accuracy_dict[self.evaluation_method]
     
-    def __set_train_test_accuracy(self):
-        """Sets training and test accuracy dictionaries with all the accuracy stats"""
+    def __set_train_validation_accuracy(self):
+        """Sets training and validation accuracy dictionaries with all the accuracy stats"""
 
         tp,tn,fp,fn = 0,0,0,0
         for i in self.training_set:
@@ -232,6 +231,22 @@ class Hotspot:
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         f1 = (2*tp) / (2*tp + fn + fp)
 
+        try:
+            precision = tp / (tp + fp)
+            recall = tp / (tp + fn)
+        except ZeroDivisionError:
+            if(tp + fn == 0):
+                print('ERROR: No positive examples in the dataset. Check the y_cut and data_df for errors.')
+                raise
+            if(tp + fp == 0):
+                # This happens if a combination of thresholds predicts no positive examples
+                # This is not a problem, but does break the math for precision
+                precision = 0
+                recall = tp/(tp + fn)
+            else:
+                print('ERROR: ZeroDivisionError in accuracy calculation.  Check the data_df for errors.')
+                raise
+
         tp = tp * self.class_weight[1]
         tn = tn * self.class_weight[0]
         fp = fp * self.class_weight[0]
@@ -240,13 +255,13 @@ class Hotspot:
         weighted_accuracy = (tp + tn) / (tp + tn + fp + fn)
         weighted_f1 = (2*tp) / (2*tp + fn + fp)
 
-        # Sets self.accuracy to the accuracy statistic in evaluation_method
-        self.train_accuracy_dict = {'accuracy':float(accuracy), 'weighted_accuracy':float(weighted_accuracy), 'f1':float(f1), 'weighted_f1':float(weighted_f1)}
-        
-        # If there is a test set, find its accuracy
-        if(len(self.test_set) > 0):
+        # Set up the training accuracy dictionary
+        self.train_accuracy_dict = {'accuracy':float(accuracy), 'weighted_accuracy':float(weighted_accuracy), 'f1':float(f1), 'weighted_f1':float(weighted_f1), 'precision':float(precision), 'recall':float(recall)}
+
+        # If there is a validation set, find its accuracy
+        if(len(self.validation_set) > 0):
             tp,tn,fp,fn = 0,0,0,0
-            for i in self.test_set:
+            for i in self.validation_set:
                 if (self.data_df.loc[i, 'y_class'] == 1):
                     if(all(self.__is_inside(i))):
                         tp = tp + 1
@@ -261,6 +276,21 @@ class Hotspot:
             accuracy = (tp + tn) / (tp + tn + fp + fn)
             f1 = (2*tp) / (2*tp + fn + fp)
 
+            try:
+                precision = tp / (tp + fp)
+                recall = tp / (tp + fn)
+            except ZeroDivisionError:
+                if(tp + fn == 0):
+                    print('ERROR: No positive examples in the dataset. Check the y_cut and data_df for errors.')
+                    raise
+                if(tp + fp == 0):
+                    # This happens if a combination of thresholds predicts no positive examples
+                    # This is not a problem, but does break the math for precision
+                    precision = 0
+                else:
+                    print('ERROR: ZeroDivisionError in accuracy calculation.  Check the data_df for errors.')
+                    raise
+
             tp = tp * self.class_weight[1]
             tn = tn * self.class_weight[0]
             fp = fp * self.class_weight[0]
@@ -273,9 +303,11 @@ class Hotspot:
             weighted_accuracy = 0
             f1 = 0
             weighted_f1 = 0
+            precision = 0
+            recall = 0
         
-        # Sets self.accuracy to the accuracy statistic in evaluation_method
-        self.test_accuracy_dict = {'accuracy':float(accuracy), 'weighted_accuracy':float(weighted_accuracy), 'f1':float(f1), 'weighted_f1':float(weighted_f1)}
+        # Set up the validation accuracy dictionary
+        self.validation_accuracy_dict = {'accuracy':float(accuracy), 'weighted_accuracy':float(weighted_accuracy), 'f1':float(f1), 'weighted_f1':float(weighted_f1), 'precision':float(precision), 'recall':float(recall)}
 
     def __get_threshold_space(self, threshold: 'Threshold') -> list[int]:
         """
@@ -312,12 +344,12 @@ class Hotspot:
         threshold_evaluations = pd.DataFrame(bool_list, index=virtual_data_df.index, columns=self.threshold_features)
         return threshold_evaluations
     
-    def get_external_accuracy(self, virtual_data_df:pd.DataFrame, response_label:str, verbose:bool=False, low_is_good:bool=False) -> tuple[float, float, float]:
+    def get_external_accuracy(self, virtual_data_df:pd.DataFrame, response_label:str, verbose:bool=False, low_is_good:bool=False) -> tuple[float, float, float, float]:
         """
         Given a new parameters dataframe with experimental results,
         returns the accuracy, precision, and recall of the hotspot on that dataframe
         
-        :virtual_data_df: a dataframe with experimental output and parameters with xID labels
+        :virtual_data_df: a dataframe with experimental output and parameters
         :response_label: the column label in virtual_data_df with the experimental results
         :verbose: if True, prints the accuracy, precision, and recall in addition to returning them
         :low_is_good: if True, the experimental results are considered good if they are below threshold cutoffs
@@ -347,36 +379,49 @@ class Hotspot:
         precision = tp / (tp + fp)
         recall = tp / (tp + fn)
 
+        # Weights the confusion matrix to calculate the weighted statistics
+        tp = tp * self.class_weight[1]
+        tn = tn * self.class_weight[0]
+        fp = fp * self.class_weight[0]
+        fn = fn * self.class_weight[1]
+        
+        weighted_accuracy = (tp + tn) / (tp + tn + fp + fn)
+
         if verbose:
             print(f'Accuracy: {accuracy:.2f}')
+            print(f'Weighted Accuracy: {weighted_accuracy:.2f}')
             print(f'Precision: {precision:.2f}')
             print(f'Recall: {recall:.2f}')
 
-        return accuracy, precision, recall
+        return accuracy, weighted_accuracy, precision, recall
 
     def print_stats(self):
         """Prints a handful of relevant stats about the hotspot"""
-        a_accuracy = self.accuracy_dict['accuracy']
-        a_weighted_accuracy = self.accuracy_dict['weighted_accuracy']
-        a_f1 = self.accuracy_dict['f1']
-        a_weighted_f1 = self.accuracy_dict['weighted_f1']
-        a_precision = self.accuracy_dict['precision']
-        a_recall = self.accuracy_dict['recall']
+        all_accuracy = self.accuracy_dict['accuracy']
+        all_weighted_accuracy = self.accuracy_dict['weighted_accuracy']
+        all_f1 = self.accuracy_dict['f1']
+        all_weighted_f1 = self.accuracy_dict['weighted_f1']
+        all_precision = self.accuracy_dict['precision']
+        all_recall = self.accuracy_dict['recall']
 
-        tr_accuracy = self.train_accuracy_dict['accuracy']
-        tr_weighted_accuracy = self.train_accuracy_dict['weighted_accuracy']
-        tr_f1 = self.train_accuracy_dict['f1']
-        tr_weighted_f1 = self.train_accuracy_dict['weighted_f1']
+        train_accuracy = self.train_accuracy_dict['accuracy']
+        train_weighted_accuracy = self.train_accuracy_dict['weighted_accuracy']
+        train_f1 = self.train_accuracy_dict['f1']
+        train_weighted_f1 = self.train_accuracy_dict['weighted_f1']
+        train_precision = self.train_accuracy_dict['precision']
+        train_recall = self.train_accuracy_dict['recall']
         
-        te_accuracy = self.test_accuracy_dict['accuracy']
-        te_weighted_accuracy = self.test_accuracy_dict['weighted_accuracy']
-        te_f1 = self.test_accuracy_dict['f1']
-        te_weighted_f1 = self.test_accuracy_dict['weighted_f1']
+        validation_accuracy = self.validation_accuracy_dict['accuracy']
+        validation_weighted_accuracy = self.validation_accuracy_dict['weighted_accuracy']
+        validation_f1 = self.validation_accuracy_dict['f1']
+        validation_weighted_f1 = self.validation_accuracy_dict['weighted_f1']
+        validation_precision = self.validation_accuracy_dict['precision']
+        validation_recall = self.validation_accuracy_dict['recall']
         
-        print('                    all    train    test')
-        print(f'         Accuracy: {a_accuracy:.3f}   {tr_accuracy:.3f}   {te_accuracy:.3f}')
-        print(f'Weighted Accuracy: {a_weighted_accuracy:.3f}   {tr_weighted_accuracy:.3f}   {te_weighted_accuracy:.3f}')
-        print(f'               F1: {a_f1:.3f}   {tr_f1:.3f}   {te_f1:.3f}')
-        print(f'      Weighted F1: {a_weighted_f1:.3f}   {tr_weighted_f1:.3f}   {te_weighted_f1:.3f}\n')
-        print(f'        Precision: {a_precision:.3f}')
-        print(f'           Recall: {a_recall:.3f}')
+        print('                    all    train  validation')
+        print(f'         Accuracy: {all_accuracy:.3f}   {train_accuracy:.3f}    {validation_accuracy:.3f}')
+        print(f'Weighted Accuracy: {all_weighted_accuracy:.3f}   {train_weighted_accuracy:.3f}    {validation_weighted_accuracy:.3f}')
+        print(f'               F1: {all_f1:.3f}   {train_f1:.3f}    {validation_f1:.3f}')
+        print(f'      Weighted F1: {all_weighted_f1:.3f}   {train_weighted_f1:.3f}    {validation_weighted_f1:.3f}\n')
+        print(f'        Precision: {all_precision:.3f}   {train_precision:.3f}    {validation_precision:.3f}')
+        print(f'           Recall: {all_recall:.3f}   {train_recall:.3f}    {validation_recall:.3f}\n')

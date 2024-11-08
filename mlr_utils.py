@@ -348,16 +348,18 @@ def external_r2(y_test_measured,y_test_predicted,y_train):
     r2_validation = 1-SS_residual/SS_total
     return(r2_validation)
 
-def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterable, y_predictions_test:Iterable,
-                   loo_predictions:Iterable = [], y_validate:Iterable = [], y_predictions_validate:Iterable = [],
+def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_predictions_validate:list,
+                   loo_predictions:list = [], y_test:list = [], y_predictions_test:list = [],
                    display_legend:bool = True, output_label:str = "Output",
                    plot_size:tuple = (5,5), manual_limits:tuple[tuple,tuple] = (None,None), plot_xy:bool = False,
-                   training_color:str = "black", test_color:str = "#BE0000", validate_color:str = "#6CC24A"):
+                   training_color:str = "black", validate_color:str = "#BE0000", test_color:str = "#6CC24A"):
     '''
-    Plots the measured vs. predicted values for the training and test sets, as well as the leave-one-out predictions if provided.
+    Plots the measured vs. predicted values for the training and validation sets, as well as the leave-one-out predictions and test set if provided.
     
     :y_train: The measured values for the training set
     :y_predictions_train: The predicted values for the training set
+    :y_validate: The measured values for the validation set
+    :y_predictions_validate: The predicted values for the validation set
     :y_test: The measured values for the test set
     :y_predictions_test: The predicted values for the test set
     :loo_predictions: The predicted values for the leave-one-out set
@@ -365,15 +367,15 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     :output_label: The label to use for the output variable
     :plot_size: The size of the plot to display
     :manual_limits: The limits to use for the x and y axes, each in their own tuple
-    :plot_xy: Whether or not to plot the 1:1 line
+    :plot_xy: Whether or not to plot the y=x line
     :training_color: The color to use for the training set points
     :test_color: The color to use for the test set points
     :validate_color: The color to use for the validation set points
     '''
     # Determine type of plot
-    if len(y_validate) > 0 and len(y_predictions_validate) > 0:
-        plot_type = "Validation"
-    elif len(y_validate) == 0 and len(y_predictions_validate) > 0:
+    if len(y_test) > 0 and len(y_predictions_test) > 0:
+        plot_type = "Test"
+    elif len(y_test) == 0 and len(y_predictions_test) > 0:
         plot_type = "Virtual Screening"
     else:
         plot_type = "Normal"
@@ -397,12 +399,12 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
     if loo_predictions:
         plt.scatter(y_train, loo_predictions, label="LOO", color="black", marker=".", facecolor='none', s=200) # Plot the leave-one-out set
     plt.scatter(y_train, y_predictions_train, label="Training", color=training_color, marker=".", s=200) # Plot the training set
-    if len(y_test) > 0:
-        plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set
+    if len(y_validate) > 0:
+        plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set
     if plot_type == "Virtual Screening":
-        plt.scatter(y_predictions_validate, y_predictions_validate, label="Validation Predictions", color=validate_color, marker=".", s=200) # Plot the validation set without experimental results 
-    elif plot_type == "Validation":
-        plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set with experimental results
+        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=test_color, marker=".", s=200) # Plot the test set without experimental results 
+    elif plot_type == "Test":
+        plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set with experimental results
 
     # Plot the 1:1 line if requested
     if plot_xy:
@@ -429,12 +431,12 @@ def plot_MLR_model(y_train:Iterable, y_predictions_train:Iterable, y_test:Iterab
 
     # Plot the prediction distribution for virtual screening
     if plot_type == "Virtual Screening":
-        experimental_values = list(chain(y_train, y_test))
-        all_values = list(chain(y_train, y_test, y_predictions_validate))
+        experimental_values = list(chain(y_train, y_validate))
+        all_values = list(chain(y_train, y_validate, y_predictions_test))
         plt.figure(figsize=plot_size)
         hist, bins = np.histogram(all_values, bins="auto")
         plt.hist(experimental_values, bins, alpha=0.5, label='Experimental Distribution',color="black")
-        plt.hist(y_predictions_validate, bins, alpha=0.5, label='Virtual Screen Distribution', color=validate_color)
+        plt.hist(y_predictions_test, bins, alpha=0.5, label='Virtual Screen Distribution', color=test_color)
         plt.legend(loc='best')
         plt.xlabel(output_label,fontsize=20)
         plt.ylabel("N samples",fontsize=20)
