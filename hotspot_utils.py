@@ -834,7 +834,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
 
         hist_data = [y_train, y_validate, y_test] if use_test else [y_train, y_validate]
         hist_labels = ['y_train', 'y_validate', 'y_test'] if use_test else ['y_train', 'y_validate']
-        hist_colors = ['black', 'blue', 'red'] if use_test else ['black', 'blue']
+        hist_colors = ['black', '#BE0000', '#008090'] if use_test else ['black', '#BE0000']
         plt.hist(hist_data, bins, alpha=0.5, stacked=True, label=hist_labels, color=hist_colors)
 
         # plt.hist(y_train, bins, stacked=True, alpha=0.5, label='y_train',color="black")

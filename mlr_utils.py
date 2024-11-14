@@ -348,11 +348,12 @@ def external_r2(y_test_measured,y_test_predicted,y_train):
     r2_validation = 1-SS_residual/SS_total
     return(r2_validation)
 
+# Old test color = #6CC24A
 def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_predictions_validate:list,
                    loo_predictions:list = [], y_test:list = [], y_predictions_test:list = [],
                    display_legend:bool = True, output_label:str = "Output",
                    plot_size:tuple = (5,5), manual_limits:tuple[tuple,tuple] = (None,None), plot_xy:bool = False,
-                   training_color:str = "black", validate_color:str = "#BE0000", test_color:str = "#6CC24A"):
+                   training_color:str = "black", validate_color:str = "#BE0000", test_color:str = "#008090"):
     '''
     Plots the measured vs. predicted values for the training and validation sets, as well as the leave-one-out predictions and test set if provided.
     
@@ -400,11 +401,11 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
         plt.scatter(y_train, loo_predictions, label="LOO", color="black", marker=".", facecolor='none', s=200) # Plot the leave-one-out set
     plt.scatter(y_train, y_predictions_train, label="Training", color=training_color, marker=".", s=200) # Plot the training set
     if len(y_validate) > 0:
-        plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker=".", s=200) # Plot the validation set
+        plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker="D", s=40) # Plot the validation set
     if plot_type == "Virtual Screening":
-        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=test_color, marker=".", s=200) # Plot the test set without experimental results 
+        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=test_color, marker="x", s=80) # Plot the test set without experimental results 
     elif plot_type == "Test":
-        plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker=".", s=200) # Plot the test set with experimental results
+        plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker="^", s=80) # Plot the test set with experimental results
 
     # Plot the 1:1 line if requested
     if plot_xy:
