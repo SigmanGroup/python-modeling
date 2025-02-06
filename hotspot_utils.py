@@ -123,6 +123,11 @@ def prune_hotspots(hotspots:list[Hotspot], percentage:int, evaluation_method:str
     :percentage: Percentage of hotspots to keep
     :evaluation_method: 'accuracy', 'weighted_accuracy', 'f1', 'weighted_f1'; What metric to use when comparing hotspots
     """
+
+    # If the percentage is 100 or there is only one hotspot, return all hotspots
+    if percentage == 100 or len(hotspots) == 1:
+        return hotspots
+
     accuracy_list=[]
     for hs in hotspots:
         accuracy_list.append(hs.train_accuracy_dict[evaluation_method])
