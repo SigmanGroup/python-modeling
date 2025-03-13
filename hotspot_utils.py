@@ -806,6 +806,11 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
         test_set = defined_test_set
         validation_set = defined_validation_set
 
+        if training_set == []:
+            training_set = [x for x in data_df.index if x not in test_set and x not in validation_set]
+        if validation_set == []:
+            validation_set = [x for x in data_df.index if x not in training_set and x not in test_set]
+
     elif split == "none":
         # No split, just use the entire dataset as the training set
         training_set = data_df.index.to_list()
