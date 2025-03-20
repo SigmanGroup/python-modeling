@@ -337,6 +337,18 @@ def repeated_k_fold(x_train:pd.DataFrame, y_train:pd.DataFrame, k:int = 3, n:int
 
     return r2_scores
 
+def get_r2(y_test_measured,y_test_predicted,y_train,type:str):
+    '''Calculates the R2 score for the data given based on the type of R2 score desired.'''
+
+    if type == 'out-of-sample':
+        r2 = external_r2(y_test_measured,y_test_predicted,y_train)
+    elif type == 'standard':
+        r2 = metrics.r2_score(y_test_measured,y_test_predicted)
+    else:
+        raise ValueError('Invalid R2 type. Please use "out-of-sample" or "standard')
+
+    return(r2)
+
 def external_r2(y_test_measured,y_test_predicted,y_train):
     """Calculates the external R2 pred as described:
     https://pdfs.semanticscholar.org/4eb2/5ff5a87f2fd6789c5b9954eddddfd1c59dab.pdf"""
