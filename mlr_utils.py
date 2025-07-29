@@ -398,7 +398,11 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
     
     # Set plot limits
     if manual_limits[0] is None:
-        all_values = list(chain(y_train, y_predictions_train, y_test, y_predictions_test, loo_predictions, y_validate, y_predictions_validate))
+        # If no manual limits are provided, calculate the limits based on the data
+        all_items = [y_train, y_predictions_train, y_test, y_predictions_test, loo_predictions]
+        if len(y_validate) > 0:                                         #control for no validation set
+            all_items.extend([y_validate, y_predictions_validate])
+        all_values = list(chain(*all_items))
         max_value = max(all_values)
         min_value = min(all_values)
         delta = 0.04 * (max_value - min_value)
