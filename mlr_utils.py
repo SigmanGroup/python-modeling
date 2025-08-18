@@ -10,10 +10,11 @@ from joblib import Parallel,delayed
 
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LinearRegression 
+from sklearn.linear_model import LinearRegression
 from sklearn import metrics
 from sklearn.model_selection import RepeatedKFold, LeaveOneOut
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 
 class Model:
     def __init__(self, terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type, usescore:str = 'q2'):
@@ -56,7 +57,7 @@ def filter_unique(models:dict, step:int, comparison_score:str = 'r2'):
     reference_model_index = 0
     while len(models_sorted[reference_model_index]) != step: # use the best model from the current step as reference
         reference_model_index += 1
-    
+
     repeat_parameter_cutoff = min([max([round(step/3), 1]), 3]) # 1 for up to 4-term-models; 2 for 5 to 7 terms; 3 for 8+ terms
 
     unique_models = [models_sorted[reference_model_index]]
@@ -75,9 +76,9 @@ def filter_unique(models:dict, step:int, comparison_score:str = 'r2'):
                     break
 
         # Otherwise, add it to the uniquemods list
-        if add:      
+        if add:
             unique_models.append(model)
-            
+
     return(unique_models)
 
 def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:type, usescore:str = 'r2'):
@@ -92,12 +93,12 @@ def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:t
     :usescore: 'q2', 'r2'; What statistic to use in comparing models
     """
     # terms = tuple(terms)
-    model = Model(terms, data.loc[:,terms], data[response], regression_type, usescore) 
+    model = Model(terms, data.loc[:,terms], data[response], regression_type, usescore)
     if usescore == 'q2':
-        score = model.q2    
+        score = model.q2
     elif usescore == 'r2':
         score = model.r2
-    
+
     return(terms,model,score,response)
 
 def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()) -> tuple[float, list]:
@@ -112,20 +113,20 @@ def calculate_q2(X:pd.DataFrame, y:pd.DataFrame, model:type=LinearRegression()) 
     loo = LeaveOneOut()
     y_test_values = []
     y_predicted_test_values = []
-    
+
     for training_points, test_point in loo.split(X):
         x_train, x_test = X.iloc[training_points], X.iloc[test_point]
         y_train, y_test = y.iloc[training_points], y.iloc[test_point]
-        
-        model.fit(x_train, y_train) 
+
+        model.fit(x_train, y_train)
         y_predictions = model.predict(x_test)
-            
+
         y_test_values.append(y_test.values[0])
         y_predicted_test_values.append(y_predictions[0])
-        
+
         # ytests += list(y_test)
         # ypreds += list(y_predictions)
-            
+
     q2_score = metrics.r2_score(y_test_values, y_predicted_test_values)
     return(q2_score, y_predicted_test_values)
 
@@ -142,8 +143,8 @@ def q2_parallel(terms:tuple, X:pd.DataFrame, y:pd.DataFrame, regression_type:typ
 def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_steps:int = 3, n_candidates:int = 30 ,
                                       regression_type:type=LinearRegression, collinearity_cutoff:float = 0.5, n_processors:int = n_processors):
     """
-    Does a bunch of stuff to put models together. 
-    The algorithm runs all one and two parameter models, then keeps the top (step_number * {n_candidates}) models to take into step 3, 
+    Does a bunch of stuff to put models together.
+    The algorithm runs all one and two parameter models, then keeps the top (step_number * {n_candidates}) models to take into step 3,
 	    then prunes down to the top (step_number * {n_candidates + number of features}) at the end of each following step.
 
     :data: Dataframe containing all training parameters and responses with x# parameter labels
@@ -159,7 +160,7 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
     # Pull the list of x# features and take out the response column
     features = list(data.columns)
     features.remove(response_label)
-    
+
     # Set up the correlation_map and collinearity cutoff in a comparable way
     correlation_map = data.corr() # pearson correlation coefficient R: -1 ... 1
     collinearity_cutoff = np.sqrt(collinearity_cutoff) # convert from R2 to R
@@ -177,13 +178,13 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
             # The itertools bit makes all possible 2-parameter tuples
             # The if statement filters out correlated 2-parameter tuples
             all_pairs = itertools.combinations(features,step)
-            todo = sorted([(t1,t2) for (t1,t2) in all_pairs if abs(correlation_map.loc[t1,t2]) < collinearity_cutoff])   
+            todo = sorted([(t1,t2) for (t1,t2) in all_pairs if abs(correlation_map.loc[t1,t2]) < collinearity_cutoff])
 
         # Create a queue of calls to the create_model function to create models from terms, then run them in parallel
         # The {modeling_results} variable is a list of tuples containing the terms, the model object, the score, and the response for each feature combination
         modeling_results = pool(delayed(create_model)(terms, data, response_label, regression_type) for terms in todo)
 
-        # Store information about the created models 
+        # Store information about the created models
         for result in modeling_results:
             if len(result) == 0: # In what situation would this happen?
                 continue
@@ -204,7 +205,7 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
     n_models = n_candidates * step # Number of models to carry forward to the next step
     sorted_candidates = sorted(best_r2_candidates, key=lambda terms: models[terms].q2, reverse=True) # Sort the models dictionary by q^2 and return a list of terms tuples in order
     candidates = tuple(sorted_candidates[:n_models]) # Convert the top n models in the list into a tuple of best model terms tuples
-    
+
     while step < n_steps:
         step += 1
         print(f'Starting {step} parameter models. Total time taken (sec): %0.2f' %((time.time()-start_time)))
@@ -218,15 +219,15 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
         # Remove candidate term combinations from todo if any pair of terms {t1, t2} in it exceeds the collinearity cutoff
         todo = [candidate for candidate in todo if max([correlation_map.loc[t1,t2] for (t1, t2) in itertools.combinations(candidate,2)]) <= collinearity_cutoff]
         todo.sort()
-        
+
         # Create a queue of calls to the create_model function to create models from terms, then run them in parallel
         modeling_results = pool(delayed(create_model)(terms,data,response_label,regression_type) for terms in todo)
 
         for result in modeling_results:
             if len(result) == 0:
-                continue            
-            models[result[0]] = result[1] # Expand the models dictionary with terms:Model     
- 
+                continue
+            models[result[0]] = result[1] # Expand the models dictionary with terms:Model
+
         print(f'\tFinished running all {step} parameter models. Time taken (sec): %0.2f' %((time.time()-time_step)))
         time_step = time.time()
 
@@ -296,15 +297,15 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
         'R^2': [models[terms].r2 for terms in sorted_models],
         'Q^2': [models[terms].q2 for terms in sorted_models],
     }
-    results = pd.DataFrame(results_dict)        
+    results = pd.DataFrame(results_dict)
     print('Done. Time taken (minutes): %0.2f' %((time.time()-start_time)/60))
-    return(results,models,sorted_models,candidates)        
-            
+    return(results,models,sorted_models,candidates)
+
 def repeated_k_fold(x_train:pd.DataFrame, y_train:pd.DataFrame, k:int = 3, n:int = 100, regressor = LinearRegression()):
     """
-    Reapeated k-fold cross-validation. 
-    For each of {n} repeats, the  training data is split into {k} folds. 
-    For each fold, this part of the data is predicted using the rest. 
+    Reapeated k-fold cross-validation.
+    For each of {n} repeats, the  training data is split into {k} folds.
+    For each fold, this part of the data is predicted using the rest.
     Once this is done for all k folds, the coefficient of determination (R^2) of the predictions of all folds combined is evaluated
     This is repeated n times and all n R^2 are returned for averaging/further analysis
     """
@@ -319,7 +320,7 @@ def repeated_k_fold(x_train:pd.DataFrame, y_train:pd.DataFrame, k:int = 3, n:int
     # Iterate through each of the k-fold splits, looping {k} times for each repeat
     for i, (train_index, test_index) in enumerate(k_fold_splitter.split(x_train)):
         # Track each of {n} repeats and make a new line in the lists at the start of each
-        repeat = int(i/k) 
+        repeat = int(i/k)
         if repeat >= len(y_measured_list):
             y_measured_list.append([])
             y_predictions_list.append([])
@@ -365,10 +366,11 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
                    loo_predictions:list = [], y_test:list = [], y_predictions_test:list = [],
                    display_legend:bool = True, output_label:str = "Output",
                    plot_size:tuple = (5,5), manual_limits:tuple[tuple,tuple] = (None,None), plot_xy:bool = False,
-                   training_color:str = "black", validate_color:str = "#BE0000", test_color:str = "#008090"):
+                   training_color:str = "black", validate_color:str = "#BE0000", test_color:str = "#008090",
+                   axis_digits:int = 0):
     '''
     Plots the measured vs. predicted values for the training and validation sets, as well as the leave-one-out predictions and test set if provided.
-    
+
     :y_train: The measured values for the training set
     :y_predictions_train: The predicted values for the training set
     :y_validate: The measured values for the validation set
@@ -384,6 +386,7 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
     :training_color: The color to use for the training set points
     :test_color: The color to use for the test set points
     :validate_color: The color to use for the validation set points
+    :axis_digits: The number of digits to display on the axes
     '''
     # Determine type of plot
     if len(y_test) > 0 and len(y_predictions_test) > 0:
@@ -395,7 +398,7 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
 
     # Set figure size
     plt.figure(figsize=plot_size)
-    
+
     # Set plot limits
     if manual_limits[0] is None:
         all_values = list(chain(y_train, y_predictions_train, y_test, y_predictions_test, loo_predictions, y_validate, y_predictions_validate))
@@ -415,7 +418,7 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
     if len(y_validate) > 0:
         plt.scatter(y_validate, y_predictions_validate, label="Validation", color=validate_color, marker="D", s=40) # Plot the validation set
     if plot_type == "Virtual Screening":
-        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=test_color, marker="x", s=80) # Plot the test set without experimental results 
+        plt.scatter(y_predictions_test, y_predictions_test, label="Virtual Screen Predictions", color=test_color, marker="x", s=80) # Plot the test set without experimental results
     elif plot_type == "Test":
         plt.scatter(y_test, y_predictions_test, label="Test", color=test_color, marker="^", s=80) # Plot the test set with experimental results
 
@@ -434,6 +437,11 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
     # Set the font sizes for the axes
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
+
+    # Set the number of digits in the x and y axis labels
+    if axis_digits > 0:
+        plt.gca().xaxis.set_major_formatter(FormatStrFormatter(f'%.{axis_digits}f'))
+        plt.gca().yaxis.set_major_formatter(FormatStrFormatter(f'%.{axis_digits}f'))
 
     # Remove the top and right spines
     plt.gca().spines['right'].set_color('none')
@@ -461,7 +469,7 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
 def process_features(features:list, data_df:pd.DataFrame):
     '''Converts the features input into a list of column names if given a list of integer possitions.
     Raises an error if the input is not a list of integers or strings.
-    
+
     :features: List of integers or strings representing the features to use
     :data_df: The dataframe containing the data to be modeled
     '''
@@ -474,7 +482,7 @@ def process_features(features:list, data_df:pd.DataFrame):
         features = data_df.columns[features].tolist()
     else:
         raise ValueError('Invalid feature input. Please use a list of integers or strings.')
-    
+
     return features
 
 class StopExecution(Exception):
