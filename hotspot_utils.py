@@ -37,7 +37,7 @@ def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_met
         dt = DecisionTreeClassifier(max_depth=1, class_weight=class_weight).fit(x, y)
 
         #Turns the dt into a Threshold object
-        if(len(dt.tree_.children_left) > 1):            
+        if(len(dt.tree_.children_left) > 1):
             # If the amount of hits in the left subtree is greater than hits in the right subtree:
             if(dt.tree_.value[1][0][1] > dt.tree_.value[2][0][1]):
                  operator = '<'
@@ -45,10 +45,10 @@ def threshold_generation(data_df:pd.DataFrame, class_weight:dict, evaluation_met
                 operator = '>'
         else:
             operator = '>'
-            
+
         temp_threshold = Threshold(
             dt.tree_.threshold[0],
-            operator, 
+            operator,
             feature_name = feature,
             evaluation_method = evaluation_method
         )
@@ -63,7 +63,7 @@ def hs_next_thresholds_fast(hs:Hotspot, all_thresholds:list[Threshold]) -> list[
     :hs: Hotspot to add additional thresholds to
     :all_thresholds: List of thresholds to add to the hotspot
     """
-    
+
     all_hotspots = []
 
     for thresh in all_thresholds:
@@ -93,7 +93,7 @@ def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, feat
         dt = DecisionTreeClassifier(max_depth=1, class_weight=class_weight).fit(x, y)
 
         #Turns the dt into a Threshold object
-        if(len(dt.tree_.children_left)>1):            
+        if(len(dt.tree_.children_left)>1):
             # If the amount of hits in the left subtree is greater than hits in the right subtree:
             if(dt.tree_.value[1][0][1] > dt.tree_.value[2][0][1]):
                  operator = '<'
@@ -101,10 +101,10 @@ def hs_next_thresholds(hs:Hotspot, data_df:pd.DataFrame, class_weight:dict, feat
                 operator = '>'
         else:
             operator = '>'
-            
+
         temp_threshold = Threshold(
             dt.tree_.threshold[0],
-            operator, 
+            operator,
             feature_name = feature,
             evaluation_method = hs.evaluation_method
         )
@@ -133,12 +133,12 @@ def prune_hotspots(hotspots:list[Hotspot], percentage:int, evaluation_method:str
         accuracy_list.append(hs.train_accuracy_dict[evaluation_method])
 
     cut = np.percentile(accuracy_list, 100 - percentage)
-    
+
     hs_out=[]
     for hs in hotspots:
         if(hs.accuracy_dict[evaluation_method]>=cut):
             hs_out.append(hs)
-    
+
     return hs_out
 
 def plot_hotspot(hs:Hotspot,
@@ -186,7 +186,7 @@ def plot_single_threshold(hs: Hotspot,
 
     # Set up flags for what kind of plotting is requested
     plot_test = test_response_data is not None and vs_parameters is not None
-    plot_virtual_screening = test_response_data is None and vs_parameters is not None 
+    plot_virtual_screening = test_response_data is None and vs_parameters is not None
 
     x_col = hs.thresholds[0].feature_name
     fig, ax = plt.subplots(figsize=(10, 8))  # Create a figure and an axes
@@ -216,7 +216,7 @@ def plot_single_threshold(hs: Hotspot,
     x_max = x_max + abs(dx * 0.05)
     y_min = y_min - abs(dy * 0.05)
     y_max = y_max + abs(dy * 0.05)
-    
+
     # Set which points to plot based on the subset parameter
     if(subset == 'all'):
         points_to_plot = hs.data_df.index
@@ -226,7 +226,7 @@ def plot_single_threshold(hs: Hotspot,
         points_to_plot = hs.validation_set
     else:
         raise ValueError('Subset must be "all", "train", or "validation"')
-    
+
     # Change how the points are colored, controlled by the coloring parameter
     if(coloring=='scaled'):
         mapping_cl = hs.data_df.loc[points_to_plot, output_label]
@@ -257,13 +257,13 @@ def plot_single_threshold(hs: Hotspot,
         test_x = vs_parameters.loc[test_response_data.index, x_col]
         test_y = test_response_data.iloc[:, 0]
         ax.scatter(test_x, test_y, c = test_mapping_cl, cmap = gradient_color, edgecolor = 'black', linewidth=2, s = 100, marker = 's')
-    
+
     # Set the gradient bar or binary legend
     if(coloring == 'scaled'):
         norm = Normalize(vmin=min(mapping_cl), vmax=max(mapping_cl))
         mappable = ScalarMappable(cmap=gradient_color, norm=norm)
         mappable.set_array([])
-        
+
         cbar = plt.colorbar(mappable, ax=ax, shrink=1)
         cbar.set_label(output_label, rotation=90, size=25)
 
@@ -290,7 +290,7 @@ def plot_single_threshold(hs: Hotspot,
         active_color = mcolors.to_hex(colormap(1.0))
         inactive_color = mcolors.to_hex(colormap(0.0))
         virtual_screen_color = mcolors.to_hex('grey')
- 
+
         # Define the legend symbols
         active_symbol = Line2D([0], [0], marker='o', color='w', label='Active', markerfacecolor=active_color, markersize=10, markeredgecolor='black')
         inactive_symbol = Line2D([0], [0], marker='o', color='w', label='Inactive', markerfacecolor=inactive_color, markersize=10, markeredgecolor='black')
@@ -308,7 +308,7 @@ def plot_single_threshold(hs: Hotspot,
             legend_symbols.append(virtual_screen_symbol)
 
         ax.legend(handles=legend_symbols, fontsize=15, loc='upper right', edgecolor='black')
-    
+
     # Draw the threshold line
     ax.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
     # Draw y_cut line
@@ -325,10 +325,10 @@ def plot_single_threshold(hs: Hotspot,
     ax.locator_params(axis='y', nbins=4)
 
     ax.set_title(f'{hs.thresholds[0].feature_name} Threshold', fontsize=25, pad=10)
-    
+
     plt.show()
 
-def plot_double_threshold(hs:Hotspot, 
+def plot_double_threshold(hs:Hotspot,
                           test_response_data:Optional[pd.DataFrame] = None, vs_parameters:Optional[pd.DataFrame] = None,
                           subset:str = 'all', hide_training:bool = False,
                           coloring:str = 'scaled', gradient_color:str = 'Oranges', output_label:str = 'Yield (%)'):
@@ -347,7 +347,7 @@ def plot_double_threshold(hs:Hotspot,
 
     # Set up flags for what kind of plotting is requested
     plot_test = test_response_data is not None and vs_parameters is not None
-    plot_virtual_screening = test_response_data is None and vs_parameters is not None 
+    plot_virtual_screening = test_response_data is None and vs_parameters is not None
 
     x_col,y_col = hs.thresholds[0].feature_name, hs.thresholds[1].feature_name
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -367,7 +367,7 @@ def plot_double_threshold(hs:Hotspot,
     x_max = float(max(x_values))
     y_min = float(min(y_values))
     y_max = float(max(y_values))
-    
+
     dx = abs(x_min - x_max)
     dy = abs(y_min - y_max)
 
@@ -375,7 +375,7 @@ def plot_double_threshold(hs:Hotspot,
     x_max = x_max + abs(dx * 0.05)
     y_min = y_min - abs(dy * 0.05)
     y_max = y_max + abs(dy * 0.05)
-    
+
     # Set which points to plot based on the subset parameter
     if(subset == 'all'):
         points_to_plot = hs.data_df.index
@@ -385,7 +385,7 @@ def plot_double_threshold(hs:Hotspot,
         points_to_plot = hs.validation_set
     else:
         raise ValueError('Subset must be "all", "train", or "validation"')
-    
+
     # Change how the points are colored, controlled by the coloring parameter
     if(coloring=='scaled'):
         mapping_cl = hs.data_df.loc[points_to_plot, output_label]
@@ -404,7 +404,7 @@ def plot_double_threshold(hs:Hotspot,
         y = hs.data_df.loc[points_to_plot,y_col]
         if plot_test: alpha = 0.5
         else: alpha=1
-        ax.scatter(x, y, c=mapping_cl,cmap=gradient_color, edgecolor='black', alpha=alpha, s=100, marker='o')  
+        ax.scatter(x, y, c=mapping_cl,cmap=gradient_color, edgecolor='black', alpha=alpha, s=100, marker='o')
 
     # Plot the virtual screening set if only given parameters
     if(plot_virtual_screening):
@@ -421,13 +421,13 @@ def plot_double_threshold(hs:Hotspot,
     # Draw threshold lines
     ax.axhline(y=hs.thresholds[1].cut_value, color='black', linestyle='--')
     ax.axvline(x=hs.thresholds[0].cut_value, color='black', linestyle='--')
-    
+
     # Set the gradient bar or binary legend
     if(coloring == 'scaled'):
         norm = Normalize(vmin=min(mapping_cl), vmax=max(mapping_cl))
         mappable = ScalarMappable(cmap=gradient_color, norm=norm)
         mappable.set_array([])
-        
+
         cbar = plt.colorbar(mappable, ax=ax, shrink=1)
         cbar.set_label(output_label, rotation=90, size=25)
 
@@ -454,7 +454,7 @@ def plot_double_threshold(hs:Hotspot,
         active_color = mcolors.to_hex(colormap(1.0))
         inactive_color = mcolors.to_hex(colormap(0.0))
         virtual_screen_color = mcolors.to_hex('grey')
- 
+
         # Define the legend symbols
         active_symbol = Line2D([0], [0], marker='o', color='w', label='Active', markerfacecolor=active_color, markersize=10, markeredgecolor='black')
         inactive_symbol = Line2D([0], [0], marker='o', color='w', label='Inactive', markerfacecolor=inactive_color, markersize=10, markeredgecolor='black')
@@ -508,7 +508,7 @@ def plot_triple_threshold(hs:Hotspot,
 
     # Set up flags for what kind of plotting is requested
     plot_test = test_response_data is not None and vs_parameters is not None
-    plot_virtual_screening = test_response_data is None and vs_parameters is not None  
+    plot_virtual_screening = test_response_data is None and vs_parameters is not None
 
     x_col,y_col,z_col = hs.thresholds[0].feature_name, hs.thresholds[1].feature_name, hs.thresholds[2].feature_name
     fig = plt.figure(figsize=(10,10))
@@ -555,7 +555,7 @@ def plot_triple_threshold(hs:Hotspot,
         points_to_plot = hs.validation_set
     else:
         raise ValueError('Subset must be "all", "train", or "validation"')
-        
+
     # Change how the points are colored, controlled by the coloring parameter
     if(coloring=='scaled'):
         mapping_cl = hs.data_df.loc[points_to_plot, output_label]
@@ -574,7 +574,7 @@ def plot_triple_threshold(hs:Hotspot,
         vs_y = vs_parameters.loc[:, y_col]
         vs_z = vs_parameters.loc[:, z_col]
         ax.scatter(vs_x, vs_y, vs_z, c='grey', linewidth=2, alpha=0.5, marker="x", s=50, edgecolors='k')
-    
+
     # Plot the main dataset if not hiding it
     if not hide_training:
         x = hs.data_df.loc[points_to_plot,x_col]
@@ -590,29 +590,29 @@ def plot_triple_threshold(hs:Hotspot,
         test_y = vs_parameters.loc[test_response_data.index, y_col]
         test_z = vs_parameters.loc[test_response_data.index, z_col]
         ax.scatter(test_x, test_y, test_z, c=test_mapping_cl, cmap=gradient_color, linewidth=2, alpha=0.95, marker="s", s=50, edgecolors='k')
-        
+
     # Plot the z-axis threshold
     temp_x = np.linspace(x_min, x_max, num=10)
     temp_y = np.linspace(y_min, y_max, num=10)
     temp_x, temp_y = np.meshgrid(temp_x, temp_y)
     temp_z = hs.thresholds[2].cut_value + 0 * temp_x + 0 * temp_y
     ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray')
-    
+
     # Plot the x-axis threshold
     temp_y = np.linspace(y_min, y_max, num=10)
     temp_z = np.linspace(z_min, z_max, num=10)
     temp_z, temp_y = np.meshgrid(temp_z, temp_y)
     temp_x = hs.thresholds[0].cut_value + 0 * temp_z + 0 * temp_y
-    ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray') 
-    
+    ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray')
+
     # Plot the y-axis threshold
     temp_x = np.linspace(x_min, x_max, num = 10)
     temp_z = np.linspace(z_min, z_max, num = 10)
     temp_x, temp_z = np.meshgrid(temp_x, temp_z)
     temp_y = hs.thresholds[1].cut_value + 0 * temp_x + 0 * temp_z
     ax.plot_surface(temp_x, temp_y, temp_z, alpha=0.15, color='gray')
-    
-    plt.xticks(fontsize = 10) 
+
+    plt.xticks(fontsize = 10)
     plt.yticks(fontsize = 10)
 
     # Set axes labels
@@ -624,13 +624,13 @@ def plot_triple_threshold(hs:Hotspot,
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
     ax.set_zlim(z_min, z_max)
-    
+
     # Set the gradient bar on the side
     if(coloring == 'scaled'):
         norm = Normalize(vmin=min(mapping_cl), vmax=max(mapping_cl))
         mappable = ScalarMappable(cmap=gradient_color, norm=norm)
         mappable.set_array([])
-        
+
         cbar = plt.colorbar(mappable, ax=ax, shrink=0.5)
         cbar.set_label(output_label, rotation=90, size=18)
 
@@ -657,7 +657,7 @@ def plot_triple_threshold(hs:Hotspot,
         active_color = mcolors.to_hex(colormap(1.0))
         inactive_color = mcolors.to_hex(colormap(0.0))
         virtual_screen_color = mcolors.to_hex('grey')
- 
+
         # Define the legend symbols
         active_symbol = Line2D([0], [0], marker='o', color='w', label='Active', markerfacecolor=active_color, markersize=10, markeredgecolor='black')
         inactive_symbol = Line2D([0], [0], marker='o', color='w', label='Inactive', markerfacecolor=inactive_color, markersize=10, markeredgecolor='black')
@@ -678,20 +678,24 @@ def plot_triple_threshold(hs:Hotspot,
 
     plt.show()
 
-def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:float, test_ratio:float, feature_names:list[str], response_label:str, use_test=False,
-                      randomstate:int = 0, subset:list[int] = [], stratified_quantiles:int = 10, verbose:bool = True,
-                      defined_training_set:list=[], defined_validation_set:list=[], defined_test_set:list=[]) -> tuple[list[str], list[str], list[str]]:
+def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:float, test_ratio:float, feature_names:list[str], response_label:str, class_dict: dict,
+                      use_test=False, randomstate:int = 0, subset:list[int] = [], stratified_quantiles:int = 10, verbose:bool = True,
+                      defined_training_set:list=[], defined_validation_set:list=[], defined_test_set:list=[],
+                      validation_class: str|None = None, test_class: str|None = None) -> tuple[list[str], list[str], list[str]]:
+
     """
     Given the main dataframe and some parameters, return lists of y index values for training, validation, and potentially test sets.
     Training ratio is 1 - validation_ratio - test_ratio.
-    Function updated with correct train/validation/test labeling
 
     :data_df: The master dataframe with x# column names and the first two columns as 'response' and 'y_class'
-    :split: 'random', 'ks', 'y_equidistant', 'stratified', 'define', 'none'; Type of split to use
+    :split: 'random', 'ks', 'y_equidistant', 'stratified', 'class', 'define', 'none'; Type of split to use
     :validation_ratio: Ratio of the data to use as a validation set
     :test_ratio: Ratio of the data to use as a test set
     :feature_names: List of parameter labels corresponding to the parameter column names in the dataframe
     :response_label: The name of the response column in the dataframe
+    :class_dict: Dictionary mapping class labels to their corresponding indices
+    :validation_class: Class label to use for the validation set (if any)
+    :test_class: Class label to use for the test set (if any)
     :use_test: Whether to return a test set in addition to the training and validation sets
     :randomstate: Seed to use when chosing the random split
     :defined_training_set: Y indexes corresponding to a manual training set. Only used if split == 'define'
@@ -700,7 +704,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
     :subset: The subset of y indexes to use for another split method, originally used for MLR after a classification algorithm
     :verbose: Whether to print the extended report
     """
-    
+
     # Trim the data_df to only the subset if given
     if (subset == []):
         data_df = temp_data_df.copy()
@@ -709,7 +713,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
 
     x = data_df[feature_names].to_numpy() # Array of just feature values (X_sel)
     y = data_df[response_label].to_numpy() # Array of response values (y_sel)
-    
+
     # Calculate the sizes of the training, validation, and test sets
     validation_size = int(len(data_df.index)*validation_ratio) # Number of points in the validation set
     test_size = 0
@@ -750,7 +754,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
             test_set_index = [validation_set_index[i] for i in test_set_temp_index]
             validation_set_index = [validation_set_index[i] for i in validation_set_temp_index]
 
-            test_set = list(data_df.index[test_set_index])   
+            test_set = list(data_df.index[test_set_index])
 
         training_set = list(data_df.index[training_set_index])
         validation_set = list(data_df.index[validation_set_index])
@@ -758,7 +762,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
     elif split == "y_equidistant":
         # Splitting that maximizes the spread of y values in the test set
         no_extrapolation = True # If True, the min and max y values are removed from the dataset before splitting
-        
+
         if no_extrapolation:
             # Identify the min and max y values and remove them from the dataset for the KS algorithm
             y_min = np.min(y)
@@ -774,7 +778,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
 
             if use_test:
                 validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(y_internal_formatted[validation_set_index], validation_size, randomstate)
-            
+
             # Convert indices relative to y_internal
             if use_test:
                 test_set_index = [validation_set_index[i] for i in test_set_temp_index]
@@ -798,7 +802,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
         training_set = list(data_df.index[training_set_index])
         validation_set = list(data_df.index[validation_set_index])
         if use_test:
-            test_set = list(data_df.index[test_set_index])           
+            test_set = list(data_df.index[test_set_index])
 
     elif split == 'define':
         # Manually defined training and test sets
@@ -811,15 +815,31 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
         if validation_set == []:
             validation_set = [x for x in data_df.index if x not in training_set and x not in test_set]
 
+    elif split == "class":
+        try:
+            validation_set = class_dict[validation_class]
+        except KeyError:
+            print('No valid class found for validation set.')
+            exit()
+
+        if use_test:
+            try:
+                test_set = class_dict[test_class]
+            except KeyError:
+                print('No valid class found for test set.')
+                exit()
+
+        training_set = [x for x in data_df.index if x not in test_set and x not in validation_set]
+
     elif split == "none":
         # No split, just use the entire dataset as the training set
         training_set = data_df.index.to_list()
         test_set = []
         validation_set = []
 
-    else: 
+    else:
         raise ValueError("split option not recognized")
-    
+
     if(verbose):
         y_train = data_df.loc[training_set, response_label]
         y_validate = data_df.loc[validation_set, response_label]
