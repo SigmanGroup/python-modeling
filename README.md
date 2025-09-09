@@ -1,3 +1,5 @@
+This repository is the work of Austin LeSueur, Ellyn Peters, Cian Kingston, Tobias Gensch, and many other members of the Sigman lab over the years.
+
 # python-modeling
 This repository contains the Sigman lab workflow for linear modeling, primarily driven by bidirectional stepwise MLR, as well as threshold analysis and tools for feature curation.
 
