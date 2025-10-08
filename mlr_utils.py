@@ -162,7 +162,7 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
     features.remove(response_label)
 
     # Set up the correlation_map and collinearity cutoff in a comparable way
-    correlation_map = data.corr() # pearson correlation coefficient R: -1 ... 1
+    correlation_map = data.corr().abs() # pearson correlation coefficient R: -1 ... 1
     collinearity_cutoff = np.sqrt(collinearity_cutoff) # convert from R2 to R
 
     # {models} is a dictionary of term tuples and their associated Model objects
