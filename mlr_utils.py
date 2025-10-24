@@ -92,7 +92,8 @@ def create_model(terms:tuple, data:pd.DataFrame, response:str, regression_type:t
     :regression_type: The type of regressor to use
     :usescore: 'q2', 'r2'; What statistic to use in comparing models
     """
-    # terms = tuple(terms)
+
+    terms = tuple(sorted(terms))
     model = Model(terms, data.loc[:,terms], data[response], regression_type, usescore)
     if usescore == 'q2':
         score = model.q2
@@ -214,7 +215,9 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
         # Cycle through all parameter tuples that add one term to the existing list
         all_combinations = itertools.product(candidates,features) # Create a list of all possible term combinations of current models (cantidates) and one additiona feature
         todo = set([tuple(sorted(set(candidate_model+(additional_term,)))) for (candidate_model,additional_term) in all_combinations]) # Using set() makes it so that no model gets duplicated terms and we don't get duplicated models
-        todo = [i for i in todo if i not in models.keys()] # Remove any term combinations that have already been modeled
+
+        # Remove any term combinations that have already been modeled
+        todo = [i for i in todo if i not in models.keys()]
 
         # Remove candidate term combinations from todo if any pair of terms {t1, t2} in it exceeds the collinearity cutoff
         todo = [candidate for candidate in todo if max([correlation_map.loc[t1,t2] for (t1, t2) in itertools.combinations(candidate,2)]) <= collinearity_cutoff]
@@ -269,13 +272,13 @@ def bidirectional_stepwise_regression(data:pd.DataFrame, response_label:str, n_s
         # Iterate through all candidates and all terms combinations with one removed
         for candidate in candidates:
             for terms in itertools.combinations(candidate,len(candidate)-1):
-
+                terms = tuple(sorted(terms))
                 if terms == (): # Skip if empty
                     continue
                 elif terms not in models.keys(): # If the model hasn't been seen yet, calculate it
-                    models[terms] = Model(terms, data.loc[:,terms], data[response_label], regression_type)
-                elif terms in models.keys() and not hasattr(models[terms], 'q2'): # If the model has already been seen but q^2 hasn't been calculated, do so
-                    models[terms].q2 = calculate_q2(data.loc[:,terms],data[response_label],regression_type())[0]
+                    models[terms] = Model(terms, data.loc[:,list(terms)], data[response_label], regression_type)
+                elif not hasattr(models[terms], 'q2'): # If the model has already been seen but q^2 hasn't been calculated, do so
+                    models[terms].q2 = calculate_q2(data.loc[:,list(terms)],data[response_label],regression_type())[0]
 
         # Select best models from this batch based on q^2
         models_with_q2 = [model for model in models if hasattr(models[model], 'q2')]
