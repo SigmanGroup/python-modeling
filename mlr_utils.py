@@ -412,11 +412,18 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
         max_value = max(all_values)
         min_value = min(all_values)
         delta = 0.04 * (max_value - min_value)
-        plt.xlim([min_value - delta, max_value + delta])
-        plt.ylim([min_value - delta, max_value + delta])
+        lower_xlimit = min_value - delta
+        upper_xlimit = max_value + delta
+        lower_ylimit = min_value - delta
+        upper_ylimit = max_value + delta
     else:
-        plt.xlim(manual_limits[0][0], manual_limits[0][1])
-        plt.ylim(manual_limits[1][0], manual_limits[1][1])
+        lower_xlimit = manual_limits[0][0]
+        upper_xlimit = manual_limits[0][1]
+        lower_ylimit = manual_limits[1][0]
+        upper_ylimit = manual_limits[1][1]
+
+    plt.xlim(lower_xlimit, upper_xlimit)
+    plt.ylim(lower_ylimit, upper_ylimit)
 
     # Plot the various data points
     if loo_predictions:
@@ -431,7 +438,9 @@ def plot_MLR_model(y_train:list, y_predictions_train:list, y_validate:list, y_pr
 
     # Plot the 1:1 line if requested
     if plot_xy:
-        plt.plot([min_value - delta, max_value + delta], [min_value - delta, max_value + delta], color='black', linewidth=1, linestyle='--')
+        lower_bound = max(lower_xlimit, lower_ylimit)
+        upper_bound = min(upper_xlimit, upper_ylimit)
+        plt.plot([lower_bound, upper_bound], [lower_bound, upper_bound], color='black', linewidth=1, linestyle='--')
 
     # Add a legend if requested
     if display_legend:
