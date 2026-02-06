@@ -22,10 +22,10 @@ class Threshold:
 
         # Set to 0 by default, but updated when added to a Hotspot
         self.added_accuracy = 0
-    
+
     def __str__(self):
         return f'{self.feature_name} {self.operator} {self.cut_value:.3f} with Added {self.evaluation_method} of {self.added_accuracy:.3f}'
-    
+
 
 class Hotspot:
     def __init__(self, data_df: pd.DataFrame,  thresholds: list[Threshold], y_cut:float,  training_set: list = [], validation_set: list = [], evaluation_method: str = 'weighted_accuracy', class_weight: dict = {1:10, 0:1}):
@@ -46,8 +46,8 @@ class Hotspot:
         self.evaluation_method = evaluation_method
         self.class_weight = class_weight
         self.y_cut = y_cut
-        
-        # set up the training and validation set indices 
+
+        # set up the training and validation set indices
         if(training_set == []):
             training_set = data_df.index.tolist()
         self.training_set = training_set
@@ -59,9 +59,9 @@ class Hotspot:
         self.initial_accuracy = self.accuracy
         for thresh in thresholds:
             self.add_threshold(thresh)
-    
+
         self.threshold_features = self.__get_threshold_features()
-            
+
     def __str__(self):
         """Calling as a string returns some accuracy metrics and a print out of each threshold"""
 
@@ -76,15 +76,15 @@ class Hotspot:
         output = output + 'Thresholds: \n'
         for thresh in self.thresholds:
             output = output + '\t' + str(thresh) + '\n'
-        
+
         return output
-    
+
     def __eq__(self, other: 'Hotspot'):
         """If two hotspots use the same threshold parameters and have the same accuracy, they are considered equal"""
         output = self.threshold_features == other.threshold_features
         output = output and (self.accuracy == other.accuracy)
         return output
-    
+
     def __deepcopy__(self, memo):
         '''Create a new instance of the class without copying the DataFrame'''
         new_instance = self.__class__.__new__(self.__class__)
@@ -105,15 +105,15 @@ class Hotspot:
         :threshold: The threshold object to be added
         """
         temp_accuracy = self.accuracy
-        
+
         self.thresholds.append(threshold)
         self.__set_accuracy()
         self.__set_train_validation_accuracy()
         added_accuracy = self.accuracy - temp_accuracy
         self.thresholds[-1].added_accuracy = added_accuracy
-        
+
         self.threshold_features = self.__get_threshold_features()
-       
+
     def __get_threshold_features(self) -> list[str]:
         """Returns the list of parameter names for all thresholds in the hotspot"""
         features = []
@@ -123,7 +123,7 @@ class Hotspot:
 
     def __evaluate_threshold(self, value: float, operator: str, cutoff: float) -> bool:
         """Returns the truth of [value operator (> or <) cutoff]
-        
+
         :value: the value to be evaluated in comparison to cutoff
         :operator: '>' or '<', used to compare value and cutoff
         :cutoff: number pulled from a threshold and used as a benchmark for value
@@ -136,7 +136,7 @@ class Hotspot:
             if(value > cutoff):
                 output = True
         return output
-        
+
     def __is_inside(self, y_index: int, x_space: pd.DataFrame = None) -> list[bool]:
         """
         Currently looks at a molecule identified by index in x_space and sees if it's inside this hotspot.  Returns a list of bools corresponding to each threshold.
@@ -164,7 +164,7 @@ class Hotspot:
         """Sets self accuracy, f1, weighted accuracy and weighted f1 in the self.accuracy_dict dictionary"""
 
         tp,tn,fp,fn = 0,0,0,0 # True Positive, True Negative, False Positive, False Negative
-        
+
         for i in self.data_df.index:
             if (self.data_df.loc[i, 'y_class'] == 1):
                 if(all(self.__is_inside(i))):
@@ -176,7 +176,7 @@ class Hotspot:
                     fp = fp + 1
                 else:
                     tn = tn + 1
-        
+
         try:
             accuracy = (tp + tn) / (tp + tn + fp + fn)
             f1 = (2*tp) / (2*tp + fn + fp)
@@ -199,7 +199,7 @@ class Hotspot:
         tn = tn * self.class_weight[0]
         fp = fp * self.class_weight[0]
         fn = fn * self.class_weight[1]
-        
+
         weighted_accuracy = (tp + tn) / (tp + tn + fp + fn)
 
         try:
@@ -211,7 +211,7 @@ class Hotspot:
         self.accuracy_dict = {'accuracy':float(accuracy), 'weighted_accuracy':float(weighted_accuracy), 'f1':float(f1), 'weighted_f1':float(weighted_f1),
                              'precision':float(precision), 'recall':float(recall)}
         self.accuracy = self.accuracy_dict[self.evaluation_method]
-    
+
     def __set_train_validation_accuracy(self):
         """Sets training and validation accuracy dictionaries with all the accuracy stats"""
 
@@ -227,7 +227,7 @@ class Hotspot:
                     fp = fp + 1
                 else:
                     tn = tn + 1
-        
+
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         f1 = (2*tp) / (2*tp + fn + fp)
 
@@ -251,7 +251,7 @@ class Hotspot:
         tn = tn * self.class_weight[0]
         fp = fp * self.class_weight[0]
         fn = fn * self.class_weight[1]
-        
+
         weighted_accuracy = (tp + tn) / (tp + tn + fp + fn)
         weighted_f1 = (2*tp) / (2*tp + fn + fp)
 
@@ -305,7 +305,7 @@ class Hotspot:
             weighted_f1 = 0
             precision = 0
             recall = 0
-        
+
         # Set up the validation accuracy dictionary
         self.validation_accuracy_dict = {'accuracy':float(accuracy), 'weighted_accuracy':float(weighted_accuracy), 'f1':float(f1), 'weighted_f1':float(weighted_f1), 'precision':float(precision), 'recall':float(recall)}
 
@@ -325,7 +325,7 @@ class Hotspot:
 
         y_indices_inside = self.data_df.index[mask].tolist()
         return y_indices_inside
-    
+
     def get_hotspot_space(self) -> list[int]:
         """Returns a list of y indices that fall within the hotspot"""
         y_index_list = []
@@ -333,7 +333,7 @@ class Hotspot:
             y_index_list.append(self.__get_threshold_space(threshold))
         y_index_intersection = set(y_index_list[0]).intersection(*y_index_list) # Gets the common items in the y_index_list
         return list(y_index_intersection)
-      
+
     def expand(self, virtual_data_df:pd.DataFrame) -> pd.DataFrame:
         """
         Given a new parameters dataframe, returns a dataframe showing which lines are inside which thresholds
@@ -343,12 +343,12 @@ class Hotspot:
         bool_list = [self.__is_inside(i, virtual_data_df) for i in virtual_data_df.index]
         threshold_evaluations = pd.DataFrame(bool_list, index=virtual_data_df.index, columns=self.threshold_features)
         return threshold_evaluations
-    
+
     def get_external_accuracy(self, virtual_data_df:pd.DataFrame, response_label:str, verbose:bool=False, low_is_good:bool=False) -> tuple[float, float, float, float]:
         """
         Given a new parameters dataframe with experimental results,
         returns the accuracy, precision, and recall of the hotspot on that dataframe
-        
+
         :virtual_data_df: a dataframe with experimental output and parameters
         :response_label: the column label in virtual_data_df with the experimental results
         :verbose: if True, prints the accuracy, precision, and recall in addition to returning them
@@ -374,7 +374,7 @@ class Hotspot:
         if low_is_good:
             tp, tn = tn, tp
             fp, fn = fn, fp
-        
+
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         precision = tp / (tp + fp)
         recall = tp / (tp + fn)
@@ -384,7 +384,7 @@ class Hotspot:
         tn = tn * self.class_weight[0]
         fp = fp * self.class_weight[0]
         fn = fn * self.class_weight[1]
-        
+
         weighted_accuracy = (tp + tn) / (tp + tn + fp + fn)
 
         if verbose:
@@ -410,14 +410,14 @@ class Hotspot:
         train_weighted_f1 = self.train_accuracy_dict['weighted_f1']
         train_precision = self.train_accuracy_dict['precision']
         train_recall = self.train_accuracy_dict['recall']
-        
+
         validation_accuracy = self.validation_accuracy_dict['accuracy']
         validation_weighted_accuracy = self.validation_accuracy_dict['weighted_accuracy']
         validation_f1 = self.validation_accuracy_dict['f1']
         validation_weighted_f1 = self.validation_accuracy_dict['weighted_f1']
         validation_precision = self.validation_accuracy_dict['precision']
         validation_recall = self.validation_accuracy_dict['recall']
-        
+
         print('                    all    train  validation')
         print(f'         Accuracy: {all_accuracy:.3f}   {train_accuracy:.3f}    {validation_accuracy:.3f}')
         print(f'Weighted Accuracy: {all_weighted_accuracy:.3f}   {train_weighted_accuracy:.3f}    {validation_weighted_accuracy:.3f}')
