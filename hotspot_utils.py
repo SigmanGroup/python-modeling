@@ -679,7 +679,7 @@ def plot_triple_threshold(hs:Hotspot,
     plt.show()
 
 def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:float, test_ratio:float, feature_names:list[str], response_label:str, class_dict: dict,
-                      use_test=False, randomstate:int = 0, subset:list[int] = [], stratified_quantiles:int = 10, verbose:bool = True,
+                      use_test=False, define_test=False, randomstate:int = 0, subset:list[int] = [], stratified_quantiles:int = 10, verbose:bool = True,
                       defined_training_set:list=[], defined_validation_set:list=[], defined_test_set:list=[],
                       validation_class: str|None = None, test_class: str|None = None) -> tuple[list[str], list[str], list[str]]:
 
@@ -697,6 +697,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
     :validation_class: Class label to use for the validation set (if any)
     :test_class: Class label to use for the test set (if any)
     :use_test: Whether to return a test set in addition to the training and validation sets
+    :define_test: Whether to use the defined test set instead of splitting it from the data normally
     :randomstate: Seed to use when chosing the random split
     :defined_training_set: Y indexes corresponding to a manual training set. Only used if split == 'define'
     :defined_validation_set: Y indexes corresponding to a manual validation set. Only used if split == 'define'
@@ -711,23 +712,29 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
     else:
         data_df = temp_data_df.loc[subset, :].copy()
 
+    # Set and remove test set if defining test set separately
+    if define_test:
+        test_set = defined_test_set
+        data_df = data_df.loc[[x for x in data_df.index if x not in test_set], :]
+
     x = data_df[feature_names].to_numpy() # Array of just feature values (X_sel)
     y = data_df[response_label].to_numpy() # Array of response values (y_sel)
 
     # Calculate the sizes of the training, validation, and test sets
     validation_size = int(len(data_df.index)*validation_ratio) # Number of points in the validation set
     test_size = 0
-    if use_test:
+    if use_test and not define_test:
         test_size = int(len(data_df.index)*test_ratio) # Number of points in the test set
+    elif not use_test:
+        test_set = []
 
     train_size = len(data_df.index) - validation_size - test_size
-    test_set = []
 
     if split == "random":
         # Purely random split
         random.seed(a = randomstate)
         validation_set = random.sample(list(data_df.index), k = validation_size)
-        if use_test:
+        if use_test and not define_test:
             test_set = random.sample([x for x in data_df.index if x not in validation_set], k = test_size)
         training_set = [x for x in data_df.index if x not in test_set and x not in validation_set]
 
@@ -736,19 +743,19 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
         y_binned = pd.qcut(y, q=stratified_quantiles, labels=False, duplicates='drop')
         training_set, validation_set = train_test_split(range(len(data_df.index)), test_size=validation_size + test_size, stratify=y_binned, random_state=randomstate)
 
-        if use_test:
+        if use_test and not define_test:
             validation_set, test_set = train_test_split(validation_set, test_size=test_size, stratify=y_binned[validation_set], random_state=randomstate)
 
         training_set = list(data_df.index[training_set])
         validation_set = list(data_df.index[validation_set])
-        if use_test:
+        if use_test and not define_test:
             test_set = list(data_df.index[test_set])
 
     elif split == "ks":
         # Kennard-Stone algorithm split
         validation_set_index, training_set_index = kennardstonealgorithm(x, validation_size + test_size, randomstate)
 
-        if use_test:
+        if use_test and not define_test:
             validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(x[validation_set_index], validation_size, randomstate)
 
             test_set_index = [validation_set_index[i] for i in test_set_temp_index]
@@ -776,24 +783,21 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
             # training_set_index, validation_set_index = kennardstonealgorithm(y_internal_formatted, train_size, randomstate)
             validation_set_index, training_set_index = kennardstonealgorithm(y_internal_formatted, test_size+validation_size, randomstate)
 
-            if use_test:
+            if use_test and not define_test:
                 validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(y_internal_formatted[validation_set_index], validation_size, randomstate)
-
-            # Convert indices relative to y_internal
-            if use_test:
                 test_set_index = [validation_set_index[i] for i in test_set_temp_index]
                 validation_set_index = [validation_set_index[i] for i in validation_set_temp_index]
 
             # Convert indices relative to y
             training_set_index = sorted([y_internal_indices[i] for i in list(training_set_index)] + y_extrema_indices)
             validation_set_index = sorted([y_internal_indices[i] for i in validation_set_index])
-            if use_test:
+            if use_test and not define_test:
                 test_set_index = sorted([y_internal_indices[i] for i in test_set_index])
 
         else:
             y_formatted = y.reshape(np.shape(y)[0], 1)
             training_set_index, validation_set_index = kennardstonealgorithm(y_formatted, train_size, randomstate)
-            if use_test:
+            if use_test and not define_test:
                 validation_set_temp_index, test_set_temp_index = kennardstonealgorithm(y_formatted[validation_set_index], validation_size, randomstate)
                 test_set_index = [validation_set_index[i] for i in test_set_temp_index]
                 validation_set_index = [validation_set_index[i] for i in validation_set_temp_index]
@@ -801,14 +805,17 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
         # Convert indices to row names
         training_set = list(data_df.index[training_set_index])
         validation_set = list(data_df.index[validation_set_index])
-        if use_test:
+        if use_test and not define_test:
             test_set = list(data_df.index[test_set_index])
 
     elif split == 'define':
         # Manually defined training and test sets
         training_set = defined_training_set
-        test_set = defined_test_set
         validation_set = defined_validation_set
+        if use_test:
+            test_set = defined_test_set
+        else:
+            test_set = []
 
         if training_set == []:
             training_set = [x for x in data_df.index if x not in test_set and x not in validation_set]
@@ -822,7 +829,7 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
             print('No valid class found for validation set.')
             exit()
 
-        if use_test:
+        if use_test and not define_test:
             try:
                 test_set = class_dict[test_class]
             except KeyError:
@@ -834,22 +841,26 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
     elif split == "none":
         # No split, just use the entire dataset as the training set
         training_set = data_df.index.to_list()
-        test_set = []
         validation_set = []
+
+        if not (use_test and define_test):
+            test_set = []
 
     else:
         raise ValueError("split option not recognized")
 
     if(verbose):
-        y_train = data_df.loc[training_set, response_label]
-        y_validate = data_df.loc[validation_set, response_label]
-        y_test = data_df.loc[test_set, response_label]
+        y_train = temp_data_df.loc[training_set, response_label]
+        y_validate = temp_data_df.loc[validation_set, response_label]
+        y_test = temp_data_df.loc[test_set, response_label]
 
         print(f"Training Set: {training_set}")
         print(f'Validation Set: {validation_set}')
         if use_test: print(f"Test Set: {test_set}")
-        if set(training_set).union(set(test_set)).union(set(validation_set)) != set(data_df.index):
+        if set(training_set).union(set(test_set)).union(set(validation_set)) != set(temp_data_df.index) and subset == []:
             print('Missing indices!')
+        elif set(training_set).union(set(test_set)).union(set(validation_set)) != set(subset) and subset != []:
+            print('Missing indices from subset!')
 
         print("\nTraining Set size: {}".format(len(training_set)))
         print('Validation Set size: {}'.format(len(validation_set)))
@@ -864,12 +875,8 @@ def train_test_splits(temp_data_df:pd.DataFrame, split:str, validation_ratio:flo
 
         hist_data = [y_train, y_validate, y_test] if use_test else [y_train, y_validate]
         hist_labels = ['y_train', 'y_validate', 'y_test'] if use_test else ['y_train', 'y_validate']
-        hist_colors = ['black', '#BE0000', '#008090'] if use_test else ['black', '#BE0000']
+        hist_colors = ['black', "#BE0000", '#008090'] if use_test else ['black', '#BE0000']
         plt.hist(hist_data, bins, alpha=0.5, stacked=True, label=hist_labels, color=hist_colors)
-
-        # plt.hist(y_train, bins, stacked=True, alpha=0.5, label='y_train',color="black")
-        # if use_test: plt.hist(y_validate, bins, stacked=True, alpha=0.5, label='y_validate',color="red")
-        # plt.hist(y_test, bins, stacked=True, alpha=0.5, label='y_test')
 
         plt.legend(loc='best')
         plt.xlabel(response_label,fontsize=20)
